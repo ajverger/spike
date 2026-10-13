@@ -33,11 +33,12 @@ import BoardImportPanel from "./BoardImportPanel";
 import { analysisFailure } from "./analysisFailure";
 import { workspaceIssues } from "./workspaceIssues";
 import { createResultPackage, mergeProjectSnapshot, readResultPackage, retainOpaqueResultState, isSupportedSavedResult, withoutSavedResults } from "./projectSnapshotState";
+import { loadTecladoV2Drop, openTecladoV2LiveSession, TECLADO_V2_LIVE_LABEL } from "./tecladoV2Live";
 import StudyManager from "./StudyManager";
 import McpBridgePanel from "./McpBridgePanel";
 import { createMcpAnalysisConversation, type McpLoadedContext } from "./mcpAnalysisConversation";
 import "./mcpBridgePanel.css";
-import { listenMcpBridge, respondMcpBridge, type McpBridgeRequest } from "./workerBridge";
+import { listenMcpBridge, respondMcpBridge, startMcpBridge, type McpBridgeRequest } from "./workerBridge";
 import { addStudyCase, createStudy, duplicateStudyCase, moveStudyCase, normalizeStudies, removeStudy, removeStudyCase, updateStudy, updateStudyCase, type SimulationStudy, type SimulationStudyCase, type StudyJsonObject } from "./simulationStudies";
 import { resultSolvedForPresentation } from "./resultAdmission";
 import { hydrateProjectArtifacts, restoreBoardVisuals, serializeBoardVisuals } from "./projectPersistenceArtifacts";
@@ -89,7 +90,7 @@ import { buildEMViewportData, availableEMQuantities, emResultFrequencies, emView
 import { OptycalSetupForm, OptycalScriptPreview, OptycalResultPlot } from "./OptycalExtension";
 import { defaultOptycalSetup, optycalParameters, admitOptycalSource, type OptycalSetup } from "./optycalStudy";
 import AnalysisGuide, { type GuideDestination } from "./AnalysisGuide";
-import { selectNativeImportFile } from "./workerBridge";
+import { selectNativeImportFile, selectNativeMcadFile } from "./workerBridge";
 import { configureBundledVisuals, configureKnownVisuals } from "./boardVisualBundles";
 import { extractNetGeometry } from "./netGeometry";
 import { emptyProcessResources, ProcessResources, sampleProcessResources, systemMemoryPercent } from "./resourceMonitor";
@@ -1842,13 +1843,108 @@ export default function App() {
     if (!editStudyCase(studyId, item.id, { mode: capturedMode, settings: currentStudySettings(item.type), resultSnapshot: JSON.parse(JSON.stringify(result)) as SimulationStudyCase["resultSnapshot"] })) return;
     setStatus(`${item.name} result captured in its study. Save the project to keep it.`);
   };
-  mcpRequestHandler.current = ({ command, args }) => {
+  mcpRequestHandler.current = async ({ command, args }) => {
     if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error("Command arguments must be an object");
     if (["analysis_view_result", "analysis_generate_report"].includes(command)) return mcpAnalysisCallbacks.current.resultAction(command, args);
     if (["analysis_context", "analysis_describe", "analysis_prepare", "analysis_patch", "analysis_preflight", "analysis_run", "analysis_job", "analysis_evidence"].includes(command)) return mcpAnalysisConversation.current!.handle(command, args);
-    if (command === "status") return {
-      workspace: tab, viewMode, projectName, boardFile, boardLoaded: Boolean(boardData),
-      studyCount: studies.length, activeStudyCaseId, workerAvailable,
+    if (command === "status") {
+      const report = {
+        workspace: tab, viewMode, projectName, projectPath, boardFile, boardLoaded: Boolean(boardData),
+        studyCount: studies.length, activeStudyCaseId, workerAvailable,
+        componentCount: boardData?.components.length ?? 0,
+        missingModelCount: modelLoadStatus.missingCount,
+        missingModelRefs: modelLoadStatus.missingRefs,
+        resultId: analysisResult?.analysis_id ?? null,
+        resultMode: analysisResult?.mode ?? null,
+        maxVoltageDropV: typeof analysisResult?.summary?.max_voltage_drop_v === "number" ? analysisResult.summary.max_voltage_drop_v : null,
+      };
+      if (args.pickMcad === true) {
+        const file = await selectNativeMcadFile();
+        return { picked: file?.path ?? null };
+      }
+      if (args.powerContext === "teclado-v2") {
+        const nets = ["/VIN_12V", "/GND", "/SW_NET", "/BST_NET", "/VOUT_BUCK", "/+5V", "/+3V3", "/OUT1", "/OUT2", "/OUT3", "/OUT4", "/IGN_LED", "/IN2_LED", "/IN3_LED", "/IN4_LED", "/VPUMP", "/VNEG", "/CP1", "/CP1N", "/CP2", "/CP2N"];
+        const placed = (kind: "source" | "load", index: number, name: string, x: number, y: number, net: string, value: number): PiTerminal => ({
+          ...terminal(kind, index), name, x: x.toFixed(4), y: y.toFixed(4), layer: "F.Cu", net, value: String(value), anchorType: "coordinate",
+        });
+        const job = (id: string, net: string, source: PiTerminal, load: PiTerminal): BatchNetJob => ({
+          id, net, mode: "dc", solverId: "auto", sources: [source], loads: [load], coupling: defaultCouplingSetup(),
+        });
+        const vinSource = placed("source", 0, "J1 12 V", 94.0604, 178.9369, "/VIN_12V", 12);
+        const vinLoad = placed("load", 0, "U2 VIN", 94.5354, 166.6619, "/VIN_12V", 0.5);
+        const fiveSource = placed("source", 0, "D2 cathode", 106.0504, 163.6999, "/+5V", 5);
+        const fiveLoad = placed("load", 0, "Socket pin 21", 85.4704, 172.0699, "/+5V", 0.5);
+        const threeSource = placed("source", 0, "Socket pin 1", 85.4704, 121.2699, "/+3V3", 3.3);
+        const threeLoad = placed("load", 0, "Board 3V3", 93.402, 134.2047, "/+3V3", 0.02);
+        setPowerNets(nets);
+        setPiSetup(current => ({
+          ...current,
+          net: "/VIN_12V",
+          sources: [vinSource],
+          loads: [vinLoad],
+          returnPath: { ...current.returnPath, mode: "implicit", net: "/GND", domainId: "main" },
+          batchJobs: [
+            job("domain-12v", "/VIN_12V", vinSource, vinLoad),
+            job("domain-5v", "/+5V", fiveSource, fiveLoad),
+            job("domain-3v3", "/+3V3", threeSource, threeLoad),
+          ],
+        }));
+        setAnalysisMode("Bulk Net Analysis");
+        setAnalysisSetupWorkflow("batch");
+        setTab("PI");
+        setNetManagerOpen(true);
+        setStatus("Three supplies: 12 V at J1, 5 V at D2, 3.3 V at socket pin 1. GND at J1 is the return.");
+        return { managedNets: nets, domains: ["/VIN_12V", "/+5V", "/+3V3"] };
+      }
+      if (Array.isArray(args.managedNets)) {
+        const nets = args.managedNets.filter((net): net is string => typeof net === "string" && net.length > 0);
+        setPowerNets(nets);
+        if (nets[0]) setPiSetup(current => ({ ...current, net: nets[0] }));
+        setTab("PI");
+        setNetManagerOpen(true);
+        setStatus(`PI Net Manager: ${nets.join(", ")}`);
+        return { managedNets: nets };
+      }
+      if (args.showResult === "voltage_drop" || args.showResult === "voltage" || args.showResult === "geometry") {
+        const mode = args.showResult === "voltage" ? "voltage" : args.showResult === "geometry" ? "geometry" : "voltage_drop";
+        setNetManagerOpen(false);
+        setTab("PI");
+        setViewMode("3D");
+        selectViewportResult(mode);
+        commandCamera("fit");
+        return { showing: mode };
+      }
+      if (args.loadDrop === true) {
+        await loadTecladoV2Drop({ loadResults: applyResultFile });
+        setTab("PI");
+        return { loaded: "mas5v-dc.spike-results.json" };
+      }
+      if (args.loadSparselizard === true) {
+        const board = await fetch("/__teclado-v2/board");
+        if (!board.ok) throw new Error("Could not read the tecladoV2 board.");
+        await applyImportedBoard("Esp32S3Cybernav.kicad_pcb", await board.text());
+        const results = await fetch("/__teclado-v2/sparselizard");
+        if (!results.ok) throw new Error("Could not read the sparseLizard +5V result.");
+        await applyResultFile(await results.text(), "sparselizard-plus5.spike-results.json", { boardAlreadyImported: true });
+        setNetManagerOpen(false);
+        setTab("PI");
+        setViewMode("3D");
+        selectViewportResult("voltage_drop");
+        commandCamera("fit");
+        return { loaded: "sparselizard-plus5.spike-results.json", showing: "voltage_drop" };
+      }
+      if (args.save === true) return saveProject().then(saved => ({ ...report, saved, projectPath }));
+      if (args.clearModels === true || (args.assignModels && typeof args.assignModels === "object" && !Array.isArray(args.assignModels))) {
+        if (!boardData) throw new Error("The active board is not loaded.");
+        const next = args.clearModels === true ? {} : { ...modelAssignments, ...(args.assignModels as Record<string, string>) };
+        await boardImport.prepareComponents(boardData, boardFile, boardSource, next);
+        recordChange();
+        setModelAssignments(next);
+        setShowModels(true);
+        setStatus(args.clearModels === true ? "Component models restored from the KiCad board." : "Local solder-wire models assigned. Save the project to keep them.");
+        return { ...report, assigned: Object.keys(next) };
+      }
+      return report;
     };
     if (command === "select_workspace") {
       const workspace = args.workspace === "SI" ? "HF / SI" : args.workspace;
@@ -1923,6 +2019,22 @@ export default function App() {
     }).then(stop => { if (disposed) stop(); else unlisten = stop; }).catch(cause => setStatus(`MCP listener unavailable: ${String(cause)}`));
     return () => { disposed = true; unlisten?.(); };
   }, [desktopShell]);
+  useEffect(() => {
+    if (!desktopShell) return;
+    const auto = (import.meta.env as Record<string, string | undefined>).VITE_SPIKE_AUTO_MCP_BRIDGE;
+    if (auto !== "1") return;
+    let cancelled = false;
+    void startMcpBridge().then(status => {
+      if (cancelled || !status.enabled) return;
+      setStatus(`MCP bridge on 127.0.0.1:${status.port ?? "?"} · ${status.rendezvousPath ?? ""}`);
+    }).catch(cause => {
+      if (!cancelled) setStatus(`MCP bridge failed: ${cause instanceof Error ? cause.message : String(cause)}`);
+    });
+    return () => { cancelled = true; };
+  }, [desktopShell]);
+  useEffect(() => {
+    // Hook kept so a refresh does not remount the open project.
+  }, [desktopShell]);
   const undo = () => { const previous = historyRef.current.pop(); if (!previous) { setStatus("Nothing to undo"); return; } redoRef.current.push(snapshot()); restoreSnapshot(previous); markProjectDirty(); setStatus("Change undone"); };
   const redo = () => { const next = redoRef.current.pop(); if (!next) { setStatus("Nothing to redo"); return; } historyRef.current.push(snapshot()); restoreSnapshot(next); markProjectDirty(); setStatus("Change redone"); };
   const download = (name: string, content: string, type = "application/json") => { const url = URL.createObjectURL(new Blob([content], { type })); const anchor = document.createElement("a"); anchor.href = url; anchor.download = name; document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1500); };
@@ -1960,7 +2072,7 @@ export default function App() {
         if (!adoptSavedFile && projectPath && path.toLowerCase() === projectPath.toLowerCase()) throw new Error("Choose a different path for the result-free project copy.");
         if (preserveSourcePath && projectPath && path.toLowerCase() === projectPath.toLowerCase()) throw new Error("Choose a new path so the original older-format project is preserved.");
         if (generation !== projectGeneration.current) throw new Error("The active project changed while choosing a save path.");
-        const response = await runNativeProjectWorker({ method: "write_project_package", params: { path, snapshot, visuals, profile: "portable_project", base_package_path: projectPath, include_results: includeResults } });
+        const response = await runNativeProjectWorker({ method: "write_project_package", params: { path, snapshot, visuals, profile: "portable_project", ...(projectPath ? { base_package_path: projectPath } : {}), include_results: includeResults } });
         if (!response.ok) throw new Error(response.error ?? "The project package worker rejected the save.");
         if (generation !== projectGeneration.current) return true; // The saved snapshot must not replace a newly opened project's identity.
         const manifestDigest = (response.result as any)?.manifest?.manifest_payload_sha256;
@@ -4475,12 +4587,12 @@ export default function App() {
       } else { download(name, content); setStatus(`Result bundle downloaded: ${name}`); }
     } catch (error) { setStatus(error instanceof Error ? `Result export failed: ${error.message}` : "Result export failed"); }
   };
-  const applyResultFile = async (text: string, name: string) => {
+  const applyResultFile = async (text: string, name: string, options?: { boardAlreadyImported?: boolean }) => {
     const loaded = readResultPackage(text);
     if (loaded.snapshot) {
       await applyProjectPackage(JSON.stringify({ ...loaded.snapshot, board_visuals: loaded.visuals }), name, null);
     } else {
-      if (!boardData) throw new Error("This older result file has no embedded design. Open its original board first.");
+      if (!boardData && !options?.boardAlreadyImported) throw new Error("This older result file has no embedded design. Open its original board first.");
       const savedFile = loaded.results.saved_project?.source_file;
       if (savedFile && savedFile !== boardFile) throw new Error(`Open ${savedFile} before loading these older results.`);
       const latest = normalizeSolverResult(loaded.results.latest_result);
@@ -4531,6 +4643,13 @@ export default function App() {
     if (!file) return;
     try { await applyResultFile(await file.text(), file.name); }
     catch (error) { setStatus(`Result load failed: ${error instanceof Error ? error.message : String(error)}`); }
+  };
+  const openTecladoV2Plus5V = () => {
+    setStatus("Importing tecladoV2 and the +5V drop…");
+    void openTecladoV2LiveSession({
+      importBoard: applyImportedBoard,
+      loadResults: applyResultFile,
+    }).catch(error => setStatus(error instanceof Error ? `tecladoV2 load failed: ${error.message}` : "tecladoV2 load failed"));
   };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -4674,9 +4793,9 @@ export default function App() {
     switch (tab) {
       case "Home":
         if (desktopShell) {
-          return <><ToolGroup label="PROJECT" priority="primary"><Tool icon={Boxes} label="Multi-board" active={assemblyWorkspaceOpen} disabled={!boardData} onClick={() => openAssemblyWorkspace()} /><Tool icon={Upload} label="Import" guideTarget="board-import" onClick={() => void importNativeBoard()} /><Tool icon={FolderOpen} label="Open" onClick={() => void openProject()} /><Tool icon={FileArchive} label="Manager" onClick={() => setProjectManagerOpen(true)} /><Tool icon={Save} label="Save" onClick={() => void saveProject()} /></ToolGroup><ToolGroup label="DESIGN READINESS" priority="secondary"><Tool icon={ShieldAlert} label="Validate" active onClick={validateDesign} /><Tool icon={Layers3} label="Stackup" onClick={() => setStackupOpen(true)} /><Tool icon={Activity} label="Issues" onClick={() => setDock("Issues")} /></ToolGroup><ToolGroup label="WORKSPACE" priority="tertiary"><Tool icon={Layers3} label="Layers" active={layersOpen} onClick={() => assemblyIr && assemblyDesigns && assemblyIr.boards.length > 1 ? openBoardManager("layers") : setLayersOpen(!layersOpen)} /><Tool icon={Eye} label="3D models" active={showModels} onClick={() => setShowModels(!showModels)} /><Tool icon={PackageSearch} label="Model resolver" disabled={!boardData} onClick={() => setModelLibraryOpen(true)} /><Tool icon={Cable} label="Bonds" active={bondManagerOpen} onClick={() => setBondManagerOpen(true)} /><Tool icon={Network} label="Power tree" onClick={() => { setDock("Power tree"); setTopologyEditor("pi"); }} /></ToolGroup></>;
+          return <><ToolGroup label="PROJECT" priority="primary"><Tool icon={Boxes} label="Multi-board" active={assemblyWorkspaceOpen} disabled={!boardData} onClick={() => openAssemblyWorkspace()} /><Tool icon={Upload} label="Import" guideTarget="board-import" onClick={() => void importNativeBoard()} /><Tool icon={Gauge} label={TECLADO_V2_LIVE_LABEL} guideTarget="teclado-v2-live" onClick={openTecladoV2Plus5V} /><Tool icon={FolderOpen} label="Open" onClick={() => void openProject()} /><Tool icon={FileArchive} label="Manager" onClick={() => setProjectManagerOpen(true)} /><Tool icon={Save} label="Save" onClick={() => void saveProject()} /></ToolGroup><ToolGroup label="DESIGN READINESS" priority="secondary"><Tool icon={ShieldAlert} label="Validate" active onClick={validateDesign} /><Tool icon={Layers3} label="Stackup" onClick={() => setStackupOpen(true)} /><Tool icon={Activity} label="Issues" onClick={() => setDock("Issues")} /></ToolGroup><ToolGroup label="WORKSPACE" priority="tertiary"><Tool icon={Layers3} label="Layers" active={layersOpen} onClick={() => assemblyIr && assemblyDesigns && assemblyIr.boards.length > 1 ? openBoardManager("layers") : setLayersOpen(!layersOpen)} /><Tool icon={Eye} label="3D models" active={showModels} onClick={() => setShowModels(!showModels)} /><Tool icon={PackageSearch} label="Model resolver" disabled={!boardData} onClick={() => setModelLibraryOpen(true)} /><Tool icon={Cable} label="Bonds" active={bondManagerOpen} onClick={() => setBondManagerOpen(true)} /><Tool icon={Network} label="Power tree" onClick={() => { setDock("Power tree"); setTopologyEditor("pi"); }} /></ToolGroup></>;
         }
-        return <><ToolGroup label="PROJECT" priority="primary"><label className="file-picker tool" data-guide="board-import"><Upload size={18} /><span>Import</span><input type="file" accept=".kicad_pcb,.spike-design.json" onChange={importBoard} /></label><Tool icon={FolderOpen} label="Open" onClick={() => void openProject()} /><Tool icon={FileArchive} label="Manager" onClick={() => setProjectManagerOpen(true)} /><Tool icon={Save} label="Save" onClick={() => void saveProject()} /></ToolGroup><ToolGroup label="DESIGN READINESS" priority="secondary"><Tool icon={ShieldAlert} label="Validate" active onClick={validateDesign} /><Tool icon={Layers3} label="Stackup" onClick={() => setStackupOpen(true)} /><Tool icon={Activity} label="Issues" onClick={() => setDock("Issues")} /></ToolGroup><ToolGroup label="WORKSPACE" priority="tertiary"><Tool icon={Layers3} label="Layers" active={layersOpen} onClick={() => assemblyIr && assemblyDesigns && assemblyIr.boards.length > 1 ? openBoardManager("layers") : setLayersOpen(!layersOpen)} /><Tool icon={Eye} label="3D models" active={showModels} onClick={() => setShowModels(!showModels)} /><Tool icon={Cable} label="Bonds" active={bondManagerOpen} onClick={() => setBondManagerOpen(true)} /><Tool icon={Network} label="Power tree" onClick={() => { setDock("Power tree"); setTopologyEditor("pi"); }} /></ToolGroup></>;
+        return <><ToolGroup label="PROJECT" priority="primary"><label className="file-picker tool" data-guide="board-import"><Upload size={18} /><span>Import</span><input type="file" accept=".kicad_pcb,.spike-design.json" onChange={importBoard} /></label><Tool icon={Gauge} label={TECLADO_V2_LIVE_LABEL} guideTarget="teclado-v2-live" onClick={openTecladoV2Plus5V} /><Tool icon={FolderOpen} label="Open" onClick={() => void openProject()} /><Tool icon={FileArchive} label="Manager" onClick={() => setProjectManagerOpen(true)} /><Tool icon={Save} label="Save" onClick={() => void saveProject()} /></ToolGroup><ToolGroup label="DESIGN READINESS" priority="secondary"><Tool icon={ShieldAlert} label="Validate" active onClick={validateDesign} /><Tool icon={Layers3} label="Stackup" onClick={() => setStackupOpen(true)} /><Tool icon={Activity} label="Issues" onClick={() => setDock("Issues")} /></ToolGroup><ToolGroup label="WORKSPACE" priority="tertiary"><Tool icon={Layers3} label="Layers" active={layersOpen} onClick={() => assemblyIr && assemblyDesigns && assemblyIr.boards.length > 1 ? openBoardManager("layers") : setLayersOpen(!layersOpen)} /><Tool icon={Eye} label="3D models" active={showModels} onClick={() => setShowModels(!showModels)} /><Tool icon={Cable} label="Bonds" active={bondManagerOpen} onClick={() => setBondManagerOpen(true)} /><Tool icon={Network} label="Power tree" onClick={() => { setDock("Power tree"); setTopologyEditor("pi"); }} /></ToolGroup></>;
       case "PI":
         return <><ToolGroup label="POWER ANALYSES" priority="primary"><Tool icon={Gauge} label="DC drop" active={analysisMode === "DC IR Drop" && analysisSetupWorkflow === "single"} onClick={() => openAnalysisSetup("DC IR Drop")} /><Tool icon={Route} label="Series path" active={analysisMode === "DC IR Drop" && analysisSetupWorkflow === "path"} onClick={() => openAnalysisSetup("DC IR Drop", "path")} /><Tool icon={Network} label="Bulk nets" active={analysisMode === "Bulk Net Analysis" && analysisSetupWorkflow !== "batch"} onClick={() => openAnalysisSetup("Bulk Net Analysis")} /><Tool icon={Waves} label="AC sweep" active={analysisMode === "AC Impedance Sweep"} onClick={() => openAnalysisSetup("AC Impedance Sweep")} /><Tool icon={Waves} label="AC effects" active={acEffectsOpen} onClick={() => setAcEffectsOpen(true)} /><Tool icon={Activity} label="Transient" active={analysisMode === "Transient PI"} onClick={() => openAnalysisSetup("Transient PI")} /><Tool icon={Table2} label="Batch nets" active={analysisSetupWorkflow === "batch"} onClick={() => openAnalysisSetup("Bulk Net Analysis", "batch")} /></ToolGroup><ToolGroup label="SOURCES AND LOADS" priority="secondary"><Tool icon={ListTree} label="Net manager" active={netManagerOpen} onClick={() => openBoardManager("nets")} /><Tool icon={SlidersHorizontal} label="Terminals" onClick={() => openAnalysisSetup()} /><Tool icon={Network} label="Power paths" active={topologyEditor === "pi"} onClick={() => { setDock("Power tree"); setTopologyEditor("pi"); }} /><Tool icon={Microchip} label="SPICE models" active={spiceOpen} onClick={() => setSpiceOpen(true)} /><Tool icon={RadioTower} label="Probes" onClick={openProbeTable} /></ToolGroup><ToolGroup label="CHECK AND RUN" priority="tertiary"><Tool icon={ShieldAlert} label="Validate" onClick={validateDesign} /><Tool icon={Play} label={analysisRunning ? "Running..." : "Run PI"} onClick={runAnalysis} /><Tool icon={BarChart3} label="PI results" onClick={() => { setResultVisualizerDomain("pi"); setResultVisualizerOpen(true); }} /></ToolGroup><ToolGroup label="OUTPUT" priority="quaternary"><Tool icon={FileOutput} label="PI report" onClick={generateReport} /><Tool icon={Save} label="Save results" onClick={exportReport} /><Tool icon={FolderOpen} label="Load results" onClick={loadResults} /></ToolGroup></>;
       case "HF / SI":
