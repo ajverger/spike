@@ -66,8 +66,10 @@ export async function serializeBoardVisuals(board: ParsedBoard | null,
   for (const [role, url] of sources) {
     if (!localVisualUrl(url)) throw new Error('Project visuals must be loaded locally before saving.');
     progress(`Saving imported visuals ${artifacts.length + 1}/${sources.length}`);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Could not read the imported ${role} visual for saving.`);
+    let response: Response;
+    try { response = await fetch(url); }
+    catch { progress(`Skipped ${role}: the visual is no longer readable`); continue; }
+    if (!response.ok) { progress(`Skipped ${role}: the visual is no longer readable`); continue; }
     const bytes = new Uint8Array(await response.arrayBuffer());
     total += bytes.byteLength;
     if (total > 96 * 1024 * 1024) throw new Error('Imported visuals exceed the 96 MiB save transport limit.');
@@ -77,10 +79,13 @@ export async function serializeBoardVisuals(board: ParsedBoard | null,
     artifacts.push({ role, media_type: role.startsWith('layer:') ? 'image/svg+xml' : 'model/gltf-binary', bytes: bytes.length,
       sha256: [...hash].map(value => value.toString(16).padStart(2, '0')).join(''), artifact_base64: btoa(binary) });
   }
+  if (!artifacts.length) return undefined;
   let quality = {};
   if (board.modelManifestUrl && localVisualUrl(board.modelManifestUrl)) {
-    const response = await fetch(board.modelManifestUrl);
-    if (response.ok) quality = (await response.json()).quality ?? {};
+    try {
+      const response = await fetch(board.modelManifestUrl);
+      if (response.ok) quality = (await response.json()).quality ?? {};
+    } catch { /* The design still saves when the manifest URL has expired. */ }
   }
   return { contract: 'spike/saved-board-visuals/v1', artifacts, quality,
     view_box: board.layoutViewBox ?? [], board_includes_copper: board.boardModelIncludesCopper !== false };
