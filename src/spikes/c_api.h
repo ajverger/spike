@@ -47,6 +47,8 @@ extern "C" {
 #define SPIKES_INTEGRATION_HYBRID_TRAPEZOIDAL 1u
 /** Variable-step second-order backward differentiation with BE restarts. */
 #define SPIKES_INTEGRATION_BDF2 2u
+/** Fixed-step, two-stage third-order Radau IIA integration. */
+#define SPIKES_INTEGRATION_RADAU_IIA3 3u
 
 typedef struct spikes_circuit spikes_circuit;
 typedef struct spikes_result spikes_result;
@@ -361,6 +363,9 @@ SPIKES_API spikes_error_code spikes_transient_result_integration_diagnostics(
 /** Additive BDF2 diagnostic; preserves the ABI-v1 integration diagnostic. */
 SPIKES_API spikes_error_code spikes_transient_result_bdf2_steps(
     const spikes_transient_result *result, size_t *out_bdf2_steps);
+/** Additive Radau IIA3 diagnostic; preserves ABI-v1 structures. */
+SPIKES_API spikes_error_code spikes_transient_result_radau_iia3_steps(
+    const spikes_transient_result *result, size_t *out_radau_iia3_steps);
 SPIKES_API spikes_error_code spikes_transient_result_lte_diagnostics(
     const spikes_transient_result *result, size_t *out_rejected_steps,
     double *out_last_lte_ratio, double *out_minimum_accepted_step_s,
@@ -430,6 +435,8 @@ SPIKES_API spikes_error_code spikes_transient_session_integration_diagnostics(
     size_t *out_trapezoidal_steps);
 SPIKES_API spikes_error_code spikes_transient_session_bdf2_steps(
     const spikes_transient_session *session, size_t *out_bdf2_steps);
+SPIKES_API spikes_error_code spikes_transient_session_radau_iia3_steps(
+    const spikes_transient_session *session, size_t *out_radau_iia3_steps);
 SPIKES_API spikes_error_code spikes_transient_session_checkpoint_create(
     const spikes_transient_session *session,
     spikes_transient_checkpoint **out_checkpoint);
@@ -438,6 +445,56 @@ SPIKES_API void spikes_transient_checkpoint_destroy(
 SPIKES_API spikes_error_code spikes_transient_session_restore(
     spikes_transient_session *session,
     const spikes_transient_checkpoint *checkpoint);
+
+/* Experimental owned electrical GPIO pads; generic parameters, not vendor fits.
+ * mode: input=0,push-pull=1,open-drain=2,open-source=3;
+ * output: low=0,high=1,released=2; drive: strong=0,weak=1;
+ * pull: none=0,up=1,down=2. All resistance/capacitance values are SI.
+ * Pads belong to the circuit snapshot; updates cannot address another circuit.
+ */
+typedef struct spikes_io_pad_config {
+  uint32_t struct_version;
+  size_t struct_size;
+  double high_strong_resistance_ohm, high_weak_resistance_ohm;
+  double low_strong_resistance_ohm, low_weak_resistance_ohm;
+  double pull_up_resistance_ohm, pull_down_resistance_ohm, off_resistance_ohm;
+  double package_resistance_ohm, package_inductance_h;
+  double capacitance_to_vss_f, capacitance_to_vdd_f;
+  uint32_t enable_clamp_to_vdd, enable_clamp_to_vss;
+  double clamp_saturation_current_a, clamp_emission_coefficient, clamp_temperature_k;
+} spikes_io_pad_config;
+typedef struct spikes_io_pad_state {
+  uint32_t mode, output, drive_level, pull;
+} spikes_io_pad_state;
+SPIKES_API spikes_error_code spikes_circuit_add_io_pad(
+    spikes_circuit *circuit, const char *prefix, const char *pad,
+    const char *vdd, const char *vss, const spikes_io_pad_config *config,
+    const spikes_io_pad_state *initial_state);
+SPIKES_API spikes_error_code spikes_transient_session_set_io_pad(
+    spikes_transient_session *session, const char *prefix,
+    const spikes_io_pad_state *state);
+/* Absolute simulation ns; bounded to 65536 pending records and 2^48 ns.
+ * Equal timestamps use submission order. Stepping integrates to each edge
+ * before applying the new state, preserving existing charge/flux history.
+ * Checkpoints include the queue. No instruction-backend rollback is implied.
+ */
+SPIKES_API spikes_error_code spikes_transient_session_schedule_io_pad(
+    spikes_transient_session *session,const char *prefix,uint64_t time_ns,
+    const spikes_io_pad_state *state);
+SPIKES_API spikes_error_code spikes_transient_session_pending_io_pads(
+    const spikes_transient_session *session,size_t *count,uint64_t *next_ns);
+/* Seven doubles: external/die/VDD/VSS volts, then external/VDD/VSS currents.
+ * Currents are positive entering the pad network, including displacement.
+ */
+SPIKES_API spikes_error_code spikes_transient_session_observe_io_pad(
+    const spikes_transient_session *session, const char *prefix,
+    double *values, size_t count);
+/* result: unknown=0,low=1,high=2; in-band retains previous known state.
+ * Invalid/nonpositive rail span returns unknown. Ratios must be 0<=vil<vih<=1.
+ */
+SPIKES_API spikes_error_code spikes_io_pad_receive(
+    double pad_v, double vdd_v, double vss_v, double vil_ratio,
+    double vih_ratio, uint32_t previous, uint32_t *result);
 
 #ifdef __cplusplus
 }

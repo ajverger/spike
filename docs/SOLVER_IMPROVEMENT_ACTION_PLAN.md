@@ -16,7 +16,9 @@ and reference-tool availability are known.
 
 Evidence: [accuracy program](SOLVER_ACCURACY_PROGRAM.md),
 [initial baseline](validation/SOLVER_ACCURACY_BASELINE_20261012.md), and the
-[comprehensive report](../output/solver-comprehensive-20261012/SPIKE_solver_accuracy_and_performance_report.pdf).
+[historical comprehensive report](validation/RELEASE_040_LOCAL_EVIDENCE.md) was a
+local generated artifact and is not shipped. Its claims remain provisional until
+the checked-in benchmark commands are rerun and reviewed.
 The [action backlog](solver-improvement-actions-v1.json) is the execution
 register. Its IDs are engineering task references, not capability flags.
 
@@ -309,7 +311,7 @@ Do not equate stationary planar magnetic heating with this capability.
 
 - ACC01 now has a signed/zero amplitude mode preserving the historical v1
   default. Its conclusive 42-run owned-C++ evidence is
-  `output/acc01-20261013-rerun-1/report.json`. All 36 nonzero strata fail the
+the unbundled local `acc01-20261013-rerun-1/report.json`. All 36 nonzero strata fail the
   frozen pointwise budgets; all six zero strata pass. Errors scale with
   excitation and peak at the ramp corner. No nonzero verified minimum amplitude
   is claimed. The initial run remains inconclusive because a bound source
@@ -321,14 +323,14 @@ Do not equate stationary planar magnetic heating with this capability.
   omit events exactly on the regular grid even though the integrator uses BE;
   this diagnostics nuance must be addressed in the subsequent control review.
 - ACC03 has fresh retained-plate stopping evidence under
-  `output/retained-assembly-em-acc03-20261013`. The 80,000-step duration run
+the unbundled local `retained-assembly-em-acc03-20261013` record. The 80,000-step duration run
   remains stopping-failed (-81.74 dB observed versus -90 dB requested), while
   its S11 sensitivity passes independently. Parser edge-case review repairs are
   tested, with separate `stopping-reparse-v2.json` evidence preserving all actual
   statuses. Full integration qualification remains pending.
 - ACC04's actual retained STEP/thermal/project workflow now runs without the
   historical path override. See [declared environment repair](ASSEMBLY_THERMAL_MESHING.md#declared-isolated-environment-repair-13-october-2026-acc04)
-  and `output/acc04-20261013/validation.json`. Sources were unchanged and the
+and the unbundled local `acc04-20261013/validation.json` record. Sources were unchanged and the
   288-node SPIKE/CalculiX comparison passes its existing gate. Fresh-process
   tests cover each missing dependency, `.pth`/`PYTHONPATH` isolation, venv
   precedence and poisoned executable-path environment variables.
@@ -347,7 +349,7 @@ run completed 3,666 tests with one failure, one error and 65 skips. Its unrelate
 Python-debug startup failure passed when isolated; import-stage receipt
 qualification remains failed because WF01-S01/S02 receipts lack newly required
 source bindings. Fresh actual imports under
-`output/first-batch-parity-replay-20261013/s01` and `/s02` pass, but this task did
+the unbundled local `first-batch-parity-replay-20261013` S01 and S02 records pass, but this task did
 not overwrite the other task's receipts or backlog. Full-suite qualification
 is therefore not green. The architecture and solver-plan checks pass.
 
@@ -414,3 +416,94 @@ envelope, exact EM stopping evidence and a reproducible isolated environment.
 Stage two starts only with those results available and the relevant discrete
 model semantics documented. Existing independent capabilities remain usable
 within their current experimental scope throughout this work.
+
+### Startup/corner and importer refresh: 18 October 2026
+
+The owner approved an explicitly named higher-order linear method rather than
+silently changing legacy behavior. `radau_iia3` now passes all 42 frozen ACC01
+signed/zero RC/RL cases with the same timestep grids and all-time pointwise
+voltage/current budgets. Source, binary and input bindings are conclusive in
+the unbundled local `acc01-radau-20261018/report.json`. The lowest tested input is 1e-6 V;
+case-specific observed errors are not a universal accuracy floor. The October
+13 trapezoidal failures remain retained, not relabeled. Eight native regression
+executables passed; independent numerical review verified third-order sine
+convergence and found a coincident full-duty PULSE boundary defect, now fixed
+and rerun. See [derivation and limits](NUMERICAL_METHOD_EVIDENCE.md#native-linear-radau-iia3--18-october-2026).
+
+Six actual pinned importer runs regenerated WF01-S01/S02/S03/S04A/S04B/S04C1
+v2 receipts with exact importer-source, manifest and retained-import hashes.
+Only their evidence pointers were refreshed; historical failed artifacts and
+tamper/staleness rejection controls remain. Focused corpus/backlog checks passed.
+The final local full-suite result is recorded below; it does not establish
+release qualification. The package metadata helper extraction repairs an architecture
+size violation without changing media-type/role behavior (82 project tests
+passed, three optional skips).
+
+The initial refreshed full run completed 4,235 tests with one failure, five
+errors and 65 skips. Four errors came from component-admission code/receipt
+bindings loaded before their refresh; a fresh combined parity run passed 32/32.
+The remaining strict PWM schema error was repaired by explicitly admitting only
+the additive optional nonnegative Radau counter (unknown keys remain rejected;
+PWM remains BE); nine actual/native admission, energy and restart checks passed.
+Studio discovery was reproduced failing after a metadata-free GUI stub was
+installed by another test module. Conservative inert module discovery fixes
+that case without launching/importing a GUI; the ordered regression passed
+15 tests and neighboring board integration/coupling passed 18. The original
+failed log remains an unbundled local record named `full-python-suite-20261018.log`.
+A fresh full rerun is retained separately; no failed run is relabeled green.
+
+That second run completed 4,250 tests with zero failures, four errors and 65
+skips. All four errors rejected PI/SI evidence after another active task changed
+the gate at 23:20 and regenerated receipts at 23:25, following module loading
+at 23:18. The formerly failing native PWM and Studio discovery tests passed.
+A fresh process passed all 42 affected parity tests. After that task completed
+and became idle, a third full run started, recording gate/receipt and native
+DLL SHA-256 identities before and after execution. Its log is
+the unbundled local `full-python-suite-stable-20261018.log` record; input drift
+must be reported inconclusive, not accepted as qualification.
+
+The guarded third run completed 4,270 tests with one failure, zero errors and
+65 skips. All recorded gate/receipt and native-library hashes were unchanged;
+the repaired parity, native PWM and Studio checks passed. The sole failure was
+the debugger still reporting `starting` beyond its existing four-second polling
+budget despite a one-second configured deadline. Investigation found that its
+child watchdog initializes only after package/API imports. A separate terminal
+state read/exit race was reproduced deterministically, and Windows process
+liveness also required an actual process-state probe. These findings are now
+repaired without extending deadlines or weakening assertions. All 16 focused
+debug tests pass, including a child stalled before its own watchdog starts,
+original one-second deadline/four-second observation checks, actual child-death
+checks before fixture cleanup, preserved terminal records, and rejected forged
+identity/nonfinite deadlines. An actual descendant-tree Stop probe also passed.
+The Windows probe uses a zero-time
+[process wait](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject)
+with minimal SYNCHRONIZE rights and closes its
+[OpenProcess handle](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocess);
+actual live-child and exit-259 probes verify liveness without signaling it.
+The official [Python 3.14 os.kill contract](https://docs.python.org/3.14/library/os.html#os.kill)
+does not justify treating Windows signals as POSIX liveness checks. These API
+references were reviewed on 2026-10-18; implementation and tests are independently
+authored, not copied from examples.
+
+During startup the deadline fallback requires status polling until the child's
+watchdog initializes; this is not an OS-enforced guarantee for an unobserved
+startup or a security sandbox. The final fresh full run is retained at
+the unbundled local `full-python-suite-post-timeout-fix-20261018.log` record,
+with debugger implementation/tests/guide included in its before/after hash guard.
+The final run completed on 19 October 2026: **4,293 tests, zero failures, zero
+errors, 69 skips**, in 994.704 seconds. All 16 debugger tests passed in that full
+run. The four additional skips relative to the prior run are newly added opt-in
+native firmware-emulator tests, not formerly failing tests converted to skips.
+The remaining optional skips are explicit limitations, not waived qualification.
+
+The guarded input SHA-256 was identical before/after:
+`5fc39942f0a21fc5cb310fb20724d903f355e57cb7875ba01ec394c4c60ceab6`.
+The native DLL likewise remained
+`9a2bd6745538483c38858642eab1eeef103fefe9121ef1cdc33085e661799447`.
+The retained full-log SHA-256 is
+`a823b67ab2325ba961cd94d074e078d7033184590ac0a8e791838ab8a5620c96`.
+This closes the observed startup/corner, stale-receipt and integration failures
+for the bounded local configuration without changing acceptance tolerances,
+legacy numerical defaults or production gates. It does not close all ACC actions,
+the 69 skipped cases, measured validation, platform matrices or knowledgeable
+human numerical review before release. Earlier failed runs remain retained.

@@ -21,7 +21,7 @@ public:
    * Create a persistent session from an immutable circuit snapshot.
    *
    * Version 1 accepts constant/PULSE/PWL independent sources and backward
-   * Euler, hybrid trapezoidal, or BDF2 integration. Waveform event times are
+   * Euler, hybrid trapezoidal, BDF2, or admitted linear Radau IIA3 integration. Waveform event times are
    * interpreted on the persistent global clock and exact internal source
    * breakpoints remain bounded by max_steps.
    */
@@ -43,6 +43,9 @@ public:
   [[nodiscard]] double time_s() const noexcept { return time_s_; }
   [[nodiscard]] std::size_t step_index() const noexcept { return step_index_; }
   [[nodiscard]] bool has_point() const noexcept { return has_point_; }
+  [[nodiscard]] bool initializes_from_operating_point() const noexcept {
+    return options_.initialize_from_operating_point;
+  }
   [[nodiscard]] double node_voltage(std::string_view name) const;
   [[nodiscard]] double element_voltage(std::string_view id) const;
   [[nodiscard]] double element_current(std::string_view id) const;

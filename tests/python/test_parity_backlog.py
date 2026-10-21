@@ -3,6 +3,8 @@
 import copy
 import json
 from pathlib import Path
+import subprocess
+import sys
 import unittest
 import tempfile
 
@@ -11,9 +13,60 @@ from scripts.parity_stage_evidence import validate_done_import_stage
 
 
 class ParityBacklogTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # The archival owned-pad receipt references unbundled local board
+        # artifacts. Exercise the real generators once in this checkout.
+        temporary_root = ROOT / '.local' / 'test-temp'
+        temporary_root.mkdir(parents=True, exist_ok=True)
+        temporary = tempfile.TemporaryDirectory(prefix='owned-pad-backlog-', dir=temporary_root)
+        cls.addClassCleanup(temporary.cleanup)
+        directory = Path(temporary.name)
+        board = directory / 'board'
+        cls.owned_receipt = directory / 'receipt.json'
+        log = directory / 'tests.log'
+
+        def execute(script, arguments, accepted, timeout):
+            result = subprocess.run([sys.executable, str(ROOT / 'scripts' / script), *arguments],
+                                    cwd=ROOT, capture_output=True, text=True, timeout=timeout)
+            if result.returncode not in accepted:
+                raise AssertionError(result.stdout + result.stderr)
+
+        # Exit 2 preserves the original diagnostic's failed convergence status;
+        # the unchanged acceptance gate still requires completed CLI/four meshes.
+        execute('check_ebrake_owned_dc.py', ['--output-dir', str(board)], (0, 2), 300)
+        execute('parity_owned_pad_gate.py', ['--output', str(cls.owned_receipt),
+                '--log', str(log), '--board-dir', str(board)], (0,), 180)
+        validate_done_import_stage({'id': 'PI01-S01',
+                                    'evidence': cls.owned_receipt.relative_to(ROOT).as_posix()}, ROOT)
+
     def setUp(self):
         self.payload = json.loads((ROOT / 'docs/parity-capability-backlog-v1.json').read_text())
+        owned = [stage for stage in self.payload['stages'] if stage['id'] == 'PI01-S01']
+        self.assertEqual(len(owned), 1)
+        owned[0]['evidence'] = self.owned_receipt.relative_to(ROOT).as_posix()
         self.roadmap = (ROOT / 'docs/HYPERLYNX_PARITY_AND_MULTIPHYSICS_PLAN.md').read_text()
+
+    def test_owned_pad_replay_preserves_scope_and_rejects_tampering(self):
+        original = json.loads(self.owned_receipt.read_text())
+        self.assertFalse(original['production_qualified'])
+        archived = json.loads((ROOT / 'docs/parity-capability-backlog-v1.json').read_text())
+        replay = copy.deepcopy(self.payload)
+        next(stage for stage in replay['stages'] if stage['id'] == 'PI01-S01')['evidence'] = next(
+            stage for stage in archived['stages'] if stage['id'] == 'PI01-S01')['evidence']
+        self.assertEqual(replay, archived)
+        path = self.owned_receipt.parent / 'rejected.json'
+        stage = {'id': 'PI01-S01', 'evidence': path.relative_to(ROOT).as_posix()}
+        for mutation in ('source', 'qualified', 'count', 'skipped', 'board_artifact'):
+            receipt = copy.deepcopy(original)
+            if mutation == 'source': receipt['sources_before']['scripts/parity_owned_pad_gate.py'] = '0' * 64
+            if mutation == 'qualified': receipt['production_qualified'] = True
+            if mutation == 'count': receipt['tests']['run'] -= 1
+            if mutation == 'skipped': receipt['tests']['skipped'] = ['omitted']
+            if mutation == 'board_artifact': receipt['board_artifacts']['report.json']['sha256'] = '0' * 64
+            path.write_text(json.dumps(receipt), encoding='utf-8')
+            with self.assertRaises(ValueError, msg=mutation):
+                validate_done_import_stage(stage, ROOT)
 
     def test_current_coverage_and_pinned_fixture(self):
         result = validate_backlog(self.payload, self.roadmap)
@@ -24,7 +77,7 @@ class ParityBacklogTests(unittest.TestCase):
         self.assertTrue({'GP01', 'GP04', 'OP01', 'OP02', 'OP03', 'OP04', 'OP05',
                          'VF01', 'VF02', 'AX01', 'AX02', 'LB01', 'LB02'}.issubset(
                              result['benchmark_definitions_pending']))
-        self.assertEqual(result['done_stages'], ['WF01-S01', 'WF01-S02', 'WF01-S03', 'WF01-S04A', 'WF01-S04B', 'WF01-S04C1', 'WF01-S04C2', 'WF01-S04C3', 'WF01-S04C4', 'WF01-S04C5', 'WF01-S04C6', 'SI08-S01', 'PI04-S01', 'PI04-S02', 'PI02-S01', 'PI02-S02', 'PI02-S03', 'PI02-S04', 'PI03-S01', 'PI03-S02', 'SI08-S02', 'SI08-S03', 'SI08-S04', 'SI07-S01', 'SI07-S02', 'GP07-S01', 'SI07-S03', 'SI07-S04'])
+        self.assertEqual(result['done_stages'], ['WF01-S01', 'WF01-S02', 'WF01-S03', 'WF01-S04A', 'WF01-S04B', 'WF01-S04C1', 'WF01-S04C2', 'WF01-S04C3', 'WF01-S04C4', 'WF01-S04C5', 'WF01-S04C6', 'SI08-S01', 'PI04-S01', 'PI04-S02', 'PI02-S01', 'PI02-S02', 'PI02-S03', 'PI02-S04', 'PI03-S01', 'PI03-S02', 'SI08-S02', 'SI08-S03', 'SI08-S04', 'SI07-S01', 'SI07-S02', 'GP07-S01', 'SI07-S03', 'SI07-S04', 'SI07-S05', 'SI07-S06', 'SI07-S07', 'SI07-S08', 'SI07-S09', 'SI07-S10', 'SI02-S01', 'SI02-S02', 'SI02-S03', 'SI02-S04', 'SI02-S05', 'SI02-S06', 'PI01-S01', 'SI01-S01', 'SI02-S07', 'SI02-S08', 'SI02-S09', 'SI02-S10', 'SI02-S11', 'SI02-S12', 'SI02-S13', 'PI01-S02A'])
 
     def test_duplicate_missing_and_unknown_capabilities_fail(self):
         for mutation in ('duplicate', 'missing', 'unknown'):
@@ -168,15 +221,23 @@ class ParityBacklogTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT / 'build/parity-test-temp') as directory:
             path = Path(directory) / 'receipt.json'
             stage['evidence'] = path.relative_to(ROOT).as_posix()
-            for mutation in ('failed', 'stale_manifest', 'stale_runner', 'partial_assertions', 'wrong_source'):
+            for mutation in ('failed', 'stale_manifest', 'manifest_drift', 'stale_runner',
+                             'runner_drift', 'stale_import', 'partial_assertions', 'wrong_source'):
                 receipt = copy.deepcopy(original)
                 summary = receipt['summary']
                 if mutation == 'failed':
                     summary['status'] = 'failed'
                 elif mutation == 'stale_manifest':
                     summary['manifest_sha256'] = '0' * 64
+                elif mutation == 'manifest_drift':
+                    summary['manifest_sha256_after'] = '0' * 64
                 elif mutation == 'stale_runner':
                     summary['runner_sources']['scripts/benchmark_board_corpus.py'] = '0' * 64
+                    summary['runner_sources_after']['scripts/benchmark_board_corpus.py'] = '0' * 64
+                elif mutation == 'runner_drift':
+                    summary['runner_sources_after']['scripts/benchmark_board_corpus.py'] = '0' * 64
+                elif mutation == 'stale_import':
+                    receipt['import_evidence']['sha256'] = '0' * 64
                 elif mutation == 'partial_assertions':
                     summary['boards'][0]['entity_assertions_checked'] = 0
                 else:

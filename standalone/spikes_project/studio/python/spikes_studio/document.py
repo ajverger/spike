@@ -59,6 +59,7 @@ class Document:
         self.data.setdefault('plot_layout',default_layout())
         self.data.setdefault('instruments',[])
         self.data.setdefault('controller_setup',None)
+        self.data.setdefault('controller_boards',[])
         from .power_tree import empty_tree
         self.data.setdefault('power_tree',empty_tree());self.data.setdefault('analytics_extensions',[])
         from .directives import reconcile
@@ -301,6 +302,10 @@ class Document:
         if self.data['controller_setup'] is not None:
             from .controller_block import validate as validate_controller
             validate_controller(self.data['controller_setup'])
+        from .controller_board_blocks import validate as validate_board_blocks
+        validate_board_blocks(self.data['controller_boards'])
+        from .controller_board_blocks import validate_attachment
+        validate_attachment(self.data['controller_setup'],self.data['controller_boards'])
         from .plot_workspace import validate_instruments
         validate_instruments(self.data['instruments'],self.data['components'])
         from .power_tree import validate as validate_power
@@ -329,6 +334,11 @@ class Document:
             ids = [p[key] for p in parts]
             if len(ids) != len(set(ids)): raise ValueError(f"Duplicate component {key}")
         for part in parts:
+            custom=part.get('parameters',{}).get('component_symbol')
+            if custom:
+                from .component_package import _symbol
+                _symbol(custom)
+                if len(custom['terminals'])!=len(part['nodes']):raise ValueError('Custom symbol pin count must match the native component')
             if any(type(part.get(key)) is not bool for key in ('mirror_x','mirror_y')):raise ValueError('Mirror flags must be boolean')
             if type(part.get('rotation')) is not int or part['rotation'] not in (0,90,180,270):raise ValueError('Rotation must be 0, 90, 180 or 270 degrees')
             if any(not math.isfinite(float(part[k])) for k in ("x", "y", "temperature_k")): raise ValueError("Nonfinite component property")
@@ -573,6 +583,7 @@ COMMANDS.update({'edit.rotate':'Space','edit.wire':'W','edit.move':'M','edit.dra
 COMMANDS.update({'view.command_search':'Ctrl+Shift+K'})
 COMMANDS.update({'view.net_navigator':'Ctrl+Shift+N'})
 COMMANDS.update({'edit.copy':'Ctrl+C','edit.select_all':'Ctrl+A',
+                 'edit.duplicate':'Ctrl+Shift+D',
                  'edit.properties_standard':'Ctrl+E','edit.rotate_standard':'Ctrl+R',
                  'edit.redo_alternative':'Ctrl+Shift+Z','view.schematic':'Ctrl+1',
                  'view.plots':'Ctrl+2','view.circuit_text':'Ctrl+3'})

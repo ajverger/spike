@@ -6,6 +6,7 @@ import math
 from typing import Any, Dict, Iterable, List
 
 from .acceleration import acceleration_catalog
+from .solver_blocks import solver_blocks_catalog
 from .external_engines import external_engine_catalog
 from .spikes_runtime import engine_status
 from .solver_state import (
@@ -107,14 +108,17 @@ def _owned_spice_workspace_solver() -> Dict[str, Any]:
     runnable = available and transient
     return {
         "id": "spike.owned_spice_workspace",
-        "name": "SPIKES Backend Structured Circuit Workspace",
-        "version": str(status.get("abi_version") or "unavailable"),
+        "name": "SPIKES Owned Native Circuit Engine",
+        "version": str(status.get("runtime_version") or status.get("abi_version") or "unavailable"),
         "provider": "SPIKE",
         "source": "native",
         "state": "experimental" if runnable else "unavailable",
         "model_status": "experimental" if runnable else "unsupported",
         "execution": "owned_workspace_contract",
         "request_contract": "spike/owned-spice-workspace-request/v1",
+        "solver_block": "circuit-native",
+        "requires_blocks": ["core", "circuit-native"],
+        "runtime_features": dict(features) if isinstance(features, dict) else {},
         "capabilities": (
             [
                 "explicit_circuit_workspace", "operating_point",
@@ -161,12 +165,16 @@ def _candidate_record(identifier: str, entries: Dict[str, Dict[str, Any]], requi
     return {
         "id": identifier,
         "name": str(entry.get("name", identifier)),
+        "version": str(entry.get("version", "")),
         "source": str(entry.get("source", "unknown")),
         "state": state,
         "model_status": str(entry.get("model_status", "unsupported")),
         "execution": str(entry.get("execution", entry.get("interface", "builtin"))),
         "adapter_version": str(entry.get("adapter_version", "")),
         "request_contract": str(entry.get("request_contract", "")),
+        "solver_block": str(entry.get("solver_block", "")),
+        "requires_blocks": list(entry.get("requires_blocks", [])),
+        "runtime_features": dict(entry.get("runtime_features", {})),
         "scope": str(entry.get("scope", "")),
         "actions": list(entry.get("actions", [])),
         "eligible": eligible,
@@ -234,6 +242,7 @@ def solver_manager_catalog(internal_solvers: List[Dict[str, Any]], *, refresh: b
         })
     return {
         "contract": SOLVER_MANAGER_CONTRACT,
+        "blocks": solver_blocks_catalog(),
         "selection_policy": "capability_then_validity_then_declared_priority",
         "installation": {
             "managed_downloads": False,

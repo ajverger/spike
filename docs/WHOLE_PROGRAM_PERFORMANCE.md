@@ -84,7 +84,7 @@ Python run used approved unrestricted execution with the project environment.
 
 Full Python discovery completed: 3,400 tests in 916.229 seconds, one failure,
 five errors, 50 skips. The log is
-`output/optimization-python-native-tests-20261012.log`. The two failure causes
+the unbundled local `optimization-python-native-tests-20261012.log` record. The two failure causes
 were reproduced independently: the public-release gate rejects a missing or
 duplicate schema ID in `assembly-em-request-v1.schema.json`; four SI analytical
 tests use a fixture missing `signal_width_m`, now required by
@@ -135,10 +135,16 @@ as did TypeScript and the production build. Current native tests report 54 passe
 and one ignored. An independent read-only review found no actionable issue.
 Broad Python discovery completed: 3,434 tests in 995.826 seconds, one failure,
 five errors and 50 skips, with the same schema and SI fixture causes above.
-Log: `output/optimization-stage2-python-tests-20261012.log`. Reproduce the exact geometry check with
+Log: unbundled local record `optimization-stage2-python-tests-20261012.log`. Reproduce the exact geometry check with
 `npm run test:geometry-batching` from `app`; it is also part of `test:large-scene`.
 
 ## Remaining work
+
+The [gamma viewport pass](validation/VIEWPORT_GAMMA_OPTIMIZATION_20261018.md)
+removes full source-array traversal from warm indexed picks, reuses assembly 2D
+artwork through camera changes, and repairs shader/nested-Scene texture ownership
+and accounting. It records allocation/lifecycle checks separately from pending
+native frame/event and capacity evidence. The work targets `0.3.12-gamma.1`.
 
 1. Run the baseline native workloads with real board/model fixtures and retained
    counter/event traces. Locate the next bottleneck from those profiles.

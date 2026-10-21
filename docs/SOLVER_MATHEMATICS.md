@@ -2,6 +2,160 @@
 <!-- Copyright (c) 2026 SigHarmonic -->
 # Solver mathematics and numerical methods
 
+The [prescribed symmetric-stress operator](validation/ENCLOSURE_SYMMETRIC_STRESS_20261020.md)
+uses `K=E^T W E`, retaining cross-component shear and positive strain energy.
+The [SA-noft2 transport](validation/ENCLOSURE_SA_TRANSPORT_20261020.md) solves
+the positive-branch nonlinear scalar equation at fixed MAC velocity using
+`H(q)=nu*q+q^2/2` for diffusion and a positivity-preserving Newton line search.
+The [rotating-frame operator](validation/ENCLOSURE_ROTATING_FRAME_20261020.md)
+adds the weighted skew Coriolis block inside the momentum solve and reconstructs
+physical gauge pressure using a stable centrifugal-potential difference.
+These isolated equation checks do not establish joint RANS convergence or
+blade/moving-mesh conservation.
+
+[Obstacle-bearing rectilinear MAC](validation/ENCLOSURE_RECTILINEAR_MOMENTUM_20261020.md)
+uses integrated `B*u=0` and `(K+C(u))*u-B^T*p=F`, with physical face areas and
+half-cell dual volumes. Symmetric positive diffusion, shared primal-to-dual
+fluxes and the pressure adjoint support weighted kinetic accounting on the
+actual nonuniform grid. Actual nonlinear residual and checked power products
+avoid dimensional floors masking unresolved small-scale flow. Source/heat
+composition and bounded convergence are recorded in
+[v2 validation](validation/ENCLOSURE_CHT_V2_VALIDATION_20261020.md).
+
+[3-D enclosure energy](validation/ENCLOSURE_CHT_METHOD_20261020.md) assembles
+equal/opposite Fourier and upwind enthalpy face terms, backward-Euler sensible
+storage and actual integrated heat balances. The separate staggered inertial
+operator checks momentum, mass and kinetic work; nested RT0-form transfer
+preserves parent divergence but does not refine momentum. Weak thermal anchoring
+is rejected by a positive inverse-constant-vector conditioning diagnostic.
+
+[Physical coupled-pair terminations](RLGC_TERMINATED_PAIR.md) solve
+`(identity-diag(Gamma)*S)*a=d`, derived from `V+Rt*I_into=Vs` in RMS power waves.
+Signed source work splits into terminal `Rt*|I|^2` and conservative pair line
+loss. Independent physical spatial-state boundary equations and quadratic heat
+quadrature verify the feedback and its separate loss channels.
+
+For the 20 October 2026 experimental native conjugate-energy increment, see
+[the conservative finite-volume derivation](validation/NATIVE_CHT_METHOD_20261020.md):
+shared Fourier half-cell resistances, actual MAC-face upwind enthalpy fluxes,
+global/local energy checks and independent continuous series-resistance oracle.
+[Surface exchange](COUPLED_SURFACE_EXCHANGE.md) separately derives equal/opposite
+loads `L=-O^T q` and the adjoint reverse field `x_s=A_s^-1 O x_d`. The latter is
+not a coupling time integrator, moment-preserving geometry map or FSI solver.
+
+[Supplied symmetric coupled pairs](RLGC_COUPLED_PAIR.md) use the fixed
+orthonormal Q=1/√2[[1,1],[1,−1]] on voltage and current. Conjugate power,
+quadratic storage and PSD dissipation are invariant under this map; modal
+distributed loss is counted once at pair level. A direct physical-coordinate
+4×4 spatial boundary oracle independently checks the composed network and fields.
+
+[Finite supplied SI corner studies](SI_CANDIDATE_STUDY.md) reuse the existing
+loaded network solver. Independent ABCD loading gives
+`Vl/Vs=1/(A+B/RL+Rs*C+Rs*D/RL)`; at DC it is `RL/(Rs+Rline+RL)`.
+Every declared candidate/corner is evaluated on the same complete sampled grid.
+Limits reduce finite V/V extrema with exact witnesses; no interpolation,
+continuous-band bound or physical heat mapping is inferred.
+
+[Signed-flux RT0 density](DC_RT0_DENSITY.md) reconstructs
+`J(x)=sum(q_i*(x-v_i))/(2*A*t)` from the solved outward face fluxes.
+Exact quadratic dissipation checks terminal work; adaptive affine-norm bounds
+enclose unique-planar-volume quantiles without selecting a passing scalar.
+[Equal-slab affine magnetic integration](validation/PEEC_AFFINE_SLAB_KERNEL_20261019.md)
+integrates thickness analytically, evaluates polynomial overlap moments and
+uses displacement-domain singular cubature. Its error estimate is not a
+conservative bound. Neither increment establishes original board qualification.
+
+[Owned drilled-pad DC geometry](OWNED_DRILLED_PAD_DC.md) partitions an
+inscribed rounded land minus a circumscribed drill at their union of vertex
+rays. Exact polygon area budgets check the geometry independently of the
+conduction solve. The angular annulus oracle
+`R=theta*(2*pi-theta)/(2*pi*sigma*t*ln(b/a))` checks actual face-width and
+centroid discretization under fixed electrode conditions. This does not
+establish a unique-volume vector current-density percentile or arbitrary
+nonorthogonal/contact accuracy. Physical barrel normalization is unchanged.
+
+For [supplied ideal RLGC stars](RLGC_LINE_JUNCTION.md), common node voltage
+and zero summed inward current give the real-reference wave relation
+`a_J=(2/m*11^T-I)*b_J`. The symmetric orthogonal junction operator conserves
+power; a conditioned connection solve gives ordered external multiport S and
+coherent child drives. Unchanged child field integrals account for distributed
+conductor/dielectric heat exactly once. No physical junction energy or loss
+is inferred.
+
+
+[Piecewise RLGC wave connections](RLGC_LINE_CASCADE.md) derive internal
+incident/outgoing wave swaps from voltage continuity and opposite inward
+currents at a shared real reference. The conditioned solve (I-C*W)*a=U*a_ext
+produces external two-port basis responses and actual coherent local drives.
+Unchanged parent analytic field integrals retain section conductor/dielectric
+heat; internal transported power cancels and is never added as dissipation.
+
+
+[Driven sampled RLGC fields and loss integration](RLGC_LINE_FIELDS.md)
+solve two coherent RMS end-wave constraints using decaying phasor waves.
+Signed Re(V*conj(I)) obeys dp/dx=-(R*|I|²+G*|V|²); analytic continuous
+spatial integrals distinguish conductor/dielectric watts from average nominal
+.5*C*|V|²/.5*L*|I|² in J/m. Positive sum/difference integrals and small-argument
+series retain coherent near-cancellation without clipping or redistributing
+residuals. Probe density does not control integrated loss accuracy.
+
+
+[Uniform sampled RLGC two-ports](RLGC_LINE_NETWORK.md) solve the effective
+phasor telegrapher system dV/dx=-(R+j*omega*L)I,
+dI/dx=-(G+j*omega*C)V using a scaled analytic spatial matrix exponential.
+Decaying exponentials avoid growing hyperbolic intermediates; analytic zero
+propagation limits admit DC series/shunt/thru cases. Independent matrix solves
+and finite-ladder refinement check the result. Positive sampled losses imply
+sampled power-wave contraction, without proving broadband material causality.
+
+
+[Distortionless line attenuation](DISTORTIONLESS_LINE_TRANSIENT.md) imposes
+Rp=kappa*Lp and Gp=kappa*Cp with kappa>=0. The effective telegrapher equations
+then have constant real Z0 and delayed waves weighted by exp(-kappa*flight_time).
+Named probes report separate Rp*I² and Gp*V² in W/m and stored
+u=(Cp*V²+Lp*I²)/2 in J/m, with checked total loss=2*kappa*u. Independently
+multiplying the governing equations proves du/dt+dp/dx=-loss. This is not a
+general dispersive material law or a conservative thermal deposition map.
+
+
+[Distributed lossless TEM line transients](LOSSLESS_LINE_TRANSIENT.md) solve
+the uniform lossless telegrapher equations with zero history and two explicit
+resistive PWL drives. Positive one-way delay makes alternating end-wave recursion
+a finite causal expansion at each observation, using exact retarded-time order
+and checked amplitudes. Interior V/I, signed transport and local J/m follow
+traveling-wave identities; terminal current is positive into the line at either
+end. No rational delay approximation, temporal mesh or distributed loss model
+is introduced, and stored field energy is not deposited heat.
+
+
+[Initialized network-port reflectometry](NETWORK_REFLECTOMETRY.md) derives
+real voltage waves `Vplus=sqrt(Z0)*a`, `Vminus=sqrt(Z0)*b`, checks network
+`V=Vplus+Vminus` and `I=(Vplus-Vminus)/Z0`, and reports signed `p=V*I`.
+Explicit positive floors control apparent `Vminus/Vplus` and direct `V/I`
+ratios; unresolved values retain null and reason statuses. Probe current excludes
+external shunt-capacitor current. Transported power is not a generic heat law,
+and loaded instantaneous ratios are not frequency impedance or isolated S11.
+
+
+[Supplied crosstalk timing corners](CROSSTALK_TIMING_CORNERS.md) translate
+aggressor PWL drives as `wbar(t-delay)` with explicit endpoint holds on the
+unchanged horizon and unchanged supplied local-zero state. Retaining shifted
+interior knots and interpolating only clipped endpoints preserves each PWL
+function. Min/max over complete per-corner signed-family sampled envelopes
+produces the finite-union envelope, with attaining corner ids and actual parent
+witnesses. This establishes neither an extremum over continuous skew nor an
+intersample peak or energy-superposition identity.
+
+
+The [sampled multi-aggressor derivation](MULTI_AGGRESSOR_CROSSTALK.md) uses
+linear initialized RLC response `v_sigma = v_base + sum sigma_j v_j`, where
+common initial state and fixed drivers occur only in the baseline. At each
+requested time, independent fixed waveform polarities yield envelope
+`v_base +/- sum abs(v_j)`. Two complete fixed-pattern solves verify the global
+sampled extrema and full traces. No intersample guarantee or addition of
+quadratic heat/storage follows from voltage superposition.
+
+
 This is the central mathematical map of the implemented SPIKE solver families.
 It connects equations, units, discrete operators, boundary conditions, solution
 methods and acceptance evidence. Detailed derivations already maintained in
@@ -280,6 +434,31 @@ created. [Network graph](../python/spike_core/si_network_graph.py) and
 normalization; finite-band passivity screens apply only to that convention.
 
 ## Waveforms, eyes and resonance
+
+The [continuous RLC energy ledger](RLC_ENERGY_LEDGER.md) integrates quadratic
+physical rows on the augmented PWL state using a scaled covariance Gramian and
+doubling. It retains `Wsource-Wnetwork-Qresistor-(Efinal-Einitial)` per port and
+interval, as well as full-horizon totals, without clipping heat or redistributing
+residuals. Gramian identity/symmetry/positivity and independent analytic energy
+references admit the bounded method. Signed fitted-network work is not inferred
+to be heat or generic internal storage; thermal deposition remains separate.
+
+The [initialized RLC extension](RLC_INITIAL_STATES.md) sets the supplied
+`z0=[x0,sqrt(Z0) I0,V0/sqrt(Z0)]` before mixed closure and PWL propagation.
+Composition of the linear initial-value solution checks explicitly resliced
+split runs against uninterrupted histories. Physical energy references include
+initial storage as well as source work, heat and final storage. Source horizon,
+local-clock translation, model identity and parameter-change limits are explicit;
+this is not a general session or thermal-coupling implementation.
+
+The bounded [combined R/L and shunt-C extension](RLC_NETWORK_TRANSIENT.md)
+enforces `Vs=V+R Isrc+L dIsrc/dt` and `Isrc=Inet+C dV/dt` simultaneously.
+Capacitor-voltage algebraic rows take precedence over current rows on ports
+with both states. A regular mixed solve and stable augmented PWL propagation
+retain separate source/network currents and the boundary identity
+`Vs Isrc-V Inet=R Isrc^2+d(.5 L Isrc^2+.5 C V^2)/dt`.
+The referenced independent derivation defines normalized state blocks, units,
+conditioning and the limits on general circuit and thermal coupling claims.
 
 The bounded [shunt-capacitive source/load extension](CAPACITIVE_NETWORK_TRANSIENT.md)
 uses `Isrc=(Vs-V)/R=Inet+Csh*dV/dt` and `v=V/sqrt(Z0)=a+b` to form mixed
@@ -626,3 +805,64 @@ conservation identity, independent oracle and convergence study, source/test
 links, provenance, and remaining physical limits here or in a linked domain
 derivation. Update [solver status](SOLVER_STATUS.md) only when the required
 evidence supports a capability change.
+
+The opt-in native linear `radau_iia3` descriptor-system discretization, exact
+stage equations, current reconstruction, source-jump convention, stability
+analysis and independent ramp/sine verification are recorded in
+[the numerical evidence record](NUMERICAL_METHOD_EVIDENCE.md#native-linear-radau-iia3--18-october-2026).
+It does not replace legacy methods or admit general nonlinear/high-index DAEs.
+
+## SI02-S09 sampled reactive coupled-line boundary
+
+[Independent method derivation](RLGC_REACTIVE_PAIR.md) applies physical KCL/KVL
+for series R+j omega L and node-shunt j omega C, then conditioned four-port
+Norton/wave feedback around the unchanged supplied pair. RMS complex source
+power minus line power equals R abs(Is)^2 + j 2 omega (UL-UC), where UL/UC
+are mean stored energies. Independent physical four-state spatial equations
+and scalar ABCD transfer verify signs, fields, heat and energy. General topology,
+physical correlation and human numerical release review remain open.
+
+## SI02-S10 coupled physical section connections
+
+[Independent connection derivation](RLGC_COUPLED_CASCADE.md) imposes conductor
+voltage continuity and opposing inward currents. With block scattering B, internal
+port permutation P and exterior injection E, solve (I-PB)X=E and form E.T B X.
+Actual section drives retain coherent fields; interface signed powers cancel and
+section heat is summed once. Independent self/mutual physical spatial-chain and
+32/64-node quadratic heat quadrature references verify scattering, fields and
+separate conductor/dielectric losses. References, units, conditioning and limits
+remain in the method record; no new thermal deposition or field PDE is implied.
+
+## SI02-S11 physical RLC closure of coupled cascades
+
+[Independent composition](RLGC_LOADED_CASCADE.md) first solves internal
+(identity-PB)X=E, S=E.T B X, then physical terminal
+(identity-diag(Gamma)S)a=d. Both conditions/residuals are checked; loaded exterior
+waves drive the actual unchanged section producer. Physical Is=Iline+j omega C V
+and Vs=V+(R+j omega L)Is imply Ss-Sl=R abs(Is)^2+j2 omega(UL-UC).
+Mean J/reactive var remain distinct from terminal/section heat W. Independent
+physical self/mutual spatial-chain/RLC endpoints and32/64-node quadratic heat
+quadrature verify fields and separate losses. Thermal mapping and board validity
+remain separate gates.
+
+## SI02-S12 physical coupled star nodes
+
+[Independent star derivation](RLGC_COUPLED_STAR.md) uses equal physical voltage
+and zero summed inward current to derive J = 2/m ones − I separately for each
+conductor. J is a real symmetric involution, so ideal nodes conserve power.
+The existing block solve recovers all local waves and actual leg fields.
+A separate physical 4m-state boundary/KCL system verifies every S column;
+32/64-node quadratic quadrature verifies each branch loss split. Exact sources,
+RMS units, conditioning, dimensions and applicability limits are recorded.
+No junction dissipation, geometric parasitics or thermal cell is inferred.
+
+## SI02-S13 physical endpoints on coupled stars
+
+[Independent multiport closure](RLGC_LOADED_STAR.md) solves the internal star
+system, then a 2m-port physical RLC feedback system with explicit source versus
+line current. Source work decomposes into resistor/branch heat and ideal reactive
+exchange while mean stored energy remains separate. An independent physical
+4m RLC/node-KCL system and 32/64-node quadratic integration verify fields and
+loss splits. The same record derives an operand-scaled boundary cancellation
+comparison from the summation conditioning foundation, qualifies the empirical
+64*eps factor, and retains the positive near-node and false-current rejection cases.

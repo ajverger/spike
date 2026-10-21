@@ -125,6 +125,7 @@ def main() -> int:
         "app/src/resourceMonitor.ts",
         "app/src/detachedToolWindows.tsx",
         "app/src/assemblyToolWindows.ts",
+        "app/src/workspaceViewWindows.ts",
         "app/src/reportPreviewWindow.ts",
         "app/src/schematicWindow.ts",
         "app/src/assistantWindow.ts",
@@ -149,6 +150,7 @@ def main() -> int:
         parser_adapters = {
             "python/spike_core/kicad_importer.py",
             "python/spike_core/kicad_schematic_importer.py",
+            "python/spike_core/kicad_source_evidence.py",
             "python/spike_core/model_resolver_staging.py",
         }
         if re.search(r"(?:from|import)\s+python\.core\..*parser", text) and name not in parser_adapters:

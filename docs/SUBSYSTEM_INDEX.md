@@ -1,5 +1,278 @@
 # Subsystem Index
 
+Electron/ion optics and vacuum/pressure environments:
+[scope and stages](CHARGED_PARTICLE_VACUUM_PLAN.md). Internal native reference
+ownership is `src/particles/kinetic_reference.*` with
+`tests/test_native_particle_reference.cpp`; see
+[method and evidence](validation/NATIVE_PARTICLE_REFERENCE_20261021.md).
+Scalar diagnostics are not spatial beam, gas-flow or SEM/TEM workflows.
+
+Optics/laser instruments and spectral materials: [scope and stages](OPTICS_PHOTONICS_MATERIALS_PLAN.md).
+The internal native C++20 planar reference is `src/optics/planar_reference.*`,
+verified by `tests/test_native_optics_reference.cpp`; its
+[method record](validation/NATIVE_OPTICS_REFERENCE_20261021.md) separates
+interface/coherent-port mathematics from pending instrument/material qualification.
+
+Annular DC reference ownership: `dc_annular_land_input.py` maps full-azimuth
+finite patches; `dc_annular_land.py` solves cylindrical RT0 fields;
+`dc_annular_stack_input.py` maps explicit land/barrel/circuit incidence;
+`dc_port_circuit.py` solves passive ports; `dc_annular_stack.py` recovers fresh
+actual fields. `dc_annular_evidence.py` validates retained fields/response
+columns without another solve. `kicad_source_evidence.py` owns native pad proof;
+`dc_annular_source.py` owns file-pinned authentication. The supplemental partial
+gate is `scripts/parity_annular_contact_gate.py`; runnable examples live in
+`examples/dc_annular_stack/`. See [verified scope and open gates](validation/PI01_ANNULAR_CONTACT_20261021.md).
+
+Bimetallic strips, alloy-dependent thermal bending and thermal/electrical
+actuator requirements belong to
+[the coupled-mechanics plan](COUPLED_MECHANICS_MAGNETICS_DEVICES_PLAN.md#thermal-bending-alloys-and-actuator-requirements--21-october-2026).
+Ordinary alloys, SMA transformations, supplied actuator laws and coupled fields
+retain distinct models and validation gates; no new solver is enabled here.
+
+Requested jet-engine (including up to5 kN class), turbine/generator, industrial
+motor, wind generation and hydraulic/pneumatic scope is defined in
+[the application roadmap](PROPULSION_MACHINES_FLUID_POWER_PLAN.md). The narrow
+owner-approved propulsion-combustion exception is planning/development scope,
+not an enabled or qualified solver capability.
+
+Native/HPC direction and migration ownership live in
+[the roadmap](NATIVE_HPC_MIGRATION.md); profiling starts with
+`scripts/profile_cfd_native_candidates.py`. Reuse the existing independent-job
+LAN manager; do not confuse it with distributed PDE execution. No MPI capability
+is enabled by the profiling tool or roadmap.
+
+Explicit 3-D land reference: `dc_land_transition_input.py` maps finite rectangles
+to independent face IDs; `dc_land_transition.py` owns the conservative mixed
+solve; `dc_land_transition_evidence.py` validates raw local weak law, fields,
+KCL and heat/work. The runnable example lives in `examples/dc_land_transition/`.
+See [method](DC_LAND_TRANSITION.md), [ADR0126](adr/0126-conservative-land-transition-face-patches.md)
+and [verified scope](validation/PI01_LAND_TRANSITION_20261021.md).
+
+Tetrahedral CAD/open-flow research: `cfd_tetra_mesh.py` owns SI topology and
+the explicit CAD-surface bridge; `cfd_tetra_intersections.py` owns bounded
+positive-volume overlap exclusion; `cfd_tetra_stokes.py` owns creeping CR/P0
+flow; `cfd_tetra_energy.py` owns mixed conductive/shared advective energy.
+Actual native STEP examples run through `scripts/benchmark_cad_cfd_open_flow.py`.
+See [workflow](CFD_TETRA_WORKFLOW.md) and [executed evidence](validation/CFD_CAD_OPEN_BOUNDARY_20261021.md).
+These do not add a public solver route or engineering turbulence claim.
+
+Experimental DC geometry admission lives in `dc_precision_partition.py`, called
+only by the explicit positive `geometry_grid_mm` polygon compiler path.
+`dc_axial_ownership.py` owns supplied annular land/gap support and fresh-branch
+creation, without production dispatch or solved-current reuse. Source-bound
+partial PI01-S02 evidence belongs to `scripts/parity_pi01_blockers_gate.py`.
+See [verification and open conditions](validation/PI01_GEOMETRY_OWNERSHIP_20261021.md).
+
+Offline PI finite-contact acceptance belongs to
+`scripts/benchmark_pi_finite_contact.py`; source-bound execution belongs to
+`scripts/parity_finite_contact_gate.py`. They exercise the existing polygon
+compiler/RT0 kernels without changing production dispatch. See
+[method and limits](PI_FINITE_CONTACT_BENCHMARK.md) and
+[verification](validation/PI01_FINITE_CONTACT_20261021.md).
+
+Reusable Studio components are owned by `component_package.py` (inert schema,
+store and insertion), `component_capture.py` (source capture),
+`component_build.py` (approved compilation) and `component_maker.py` (visual
+symbol/pin/source/library editor). See [workflow and limits](../standalone/spikes_project/studio/docs/COMPONENT_MAKER.md)
+and [ADR 0125](adr/0125-reusable-component-maker.md).
+
+General CFD/CHT targets and prerequisites are defined in
+[capability target](CFD_CHT_CAPABILITY_TARGET.md). New isolated work lives in
+`enclosure_rans_research.py` (joint manufactured mean/SA state) and
+`enclosure_flow_analysis.py` (bounded RT0 probes/cell-exact stationary traces).
+Neither adds a public solver engine or engineering turbulence claim. Existing
+desktop field-volume presentation remains separate.
+
+Field-volume presentation: `app/src/fieldVolumeModel.ts` owns bounded cell/point
+admission, voxel triangles, velocity glyphs and fixed saved-history scales;
+`fieldVolumeAdapters.ts` maps admitted cavity/assembly airflow previews;
+`fieldStreamPresentation.ts` renders supplied separate curves and admits complete
+3D fluid grids; `fieldStreamTracing.ts` owns bounded center-plane, bidirectional
+frozen-field paths. `mainFieldViewport.ts` owns main-workspace field state,
+`MainFieldControls.tsx` owns the compact Fields control and inline transport,
+and `fieldVolumeScene.ts` adapts results into the shared BoardViewport Three
+scene and camera. The developer fixture uses the same main BoardViewport
+harness. Saved transport uses `transientPlayback.ts`; other result views also
+reuse `SavedFramePlaybackControls.tsx`. See [field visualization](FIELD_VISUALIZATION.md),
+[presentation evidence](validation/FIELD_STREAM_PRESENTATION_20261021.md) and the
+planned [Blender adapter](BLENDER_RENDER_PLAN.md). This is presentation, not
+solver physics.
+
+In-process flow research is isolated in `enclosure_symmetric_stress.py`
+(prescribed-viscosity strain operator), `enclosure_sa_transport.py`
+(fixed-velocity SA-noft2 equation), and `enclosure_rotating_frame.py`
+(whole-frame Coriolis solve/centrifugal pressure). Their test/oracle modules and
+`scripts/benchmark_enclosure_prerequisites.py` retain mathematical checks;
+see [scope/use](ENCLOSURE_FLOW_RESEARCH.md). No new public turbulence or propeller
+worker capability is inferred.
+
+Refined obstacle CHT v2: `enclosure_rectilinear_momentum.py` owns integrated
+fine-grid momentum; `enclosure_cht_v2.py` composes retained material/energy
+operators and independent emitted-face checks. Strict v2 schemas, CFD worker
+method `run_enclosure_cht_v2` and engine `enclosure-cht-v2` remain opt-in.
+See [workflow](ENCLOSURE_CHT_REFINED.md),
+[benchmarks](validation/ENCLOSURE_CHT_V2_VALIDATION_20261020.md) and
+[ADR0121](adr/0121-refined-obstacle-inertial-enclosure-cht.md). V1 stays separate.
+
+Experimental owned-native STM32F407 peripheral execution is split by
+responsibility. `src/spikes/peripheral_timing.*` owns exact-nanosecond TIM2,
+SPI1 and I2C1 events; `peripheral_registers.*` owns the bounded polled MMIO and
+GPIOA--GPIOI state; `peripheral_c_api.*` and `python/spikes/native_peripheral.py`
+expose bounded integer transport. Studio orchestration belongs to
+`firmware_peripheral_transport.py`; `renode_peripheral_hook.py` only forwards
+MMIO and GPIO snapshots. See [ADR 0119](adr/0119-owned-native-peripheral-mmio-and-pads.md),
+[timing/evidence](validation/NATIVE_PERIPHERAL_TIMING_20261020.md) and the
+[pin workflow](../standalone/spikes_project/studio/docs/GPIO_PIN_WORKFLOW.md).
+RCC/reset/IRQ/DMA and other routes are excluded from this mode; ADR 0114's
+older DMA subset remains separate.
+
+Experimental 3-D enclosure ownership: `enclosure_laminar.py` (rectangular MAC
+inertial momentum), `enclosure_refinement.py` (nested thermal grid/normal flux),
+`enclosure_energy.py` (shared sensible heat), and `enclosure_cht.py` (strict
+composition). `service_cfd.py` and `scripts/run_cfd.py --engine enclosure-cht`
+expose the route; see [scope and use](ENCLOSURE_CHT_3D.md) and
+[numerical evidence](validation/ENCLOSURE_CHT_METHOD_20261020.md). Existing
+`enclosure_stokes.py` retains its separate creeping regime; no fallback is inferred.
+
+`python/spike_core/rlgc_terminated_pair.py` owns physical-port resistive Thevenin
+feedback and source/resistor/line heat bookkeeping around the unchanged coupled
+pair. See [method and limits](RLGC_TERMINATED_PAIR.md) and
+[ADR 0116](adr/0116-physical-resistive-coupled-line-terminations.md).
+
+Experimental native cavity CHT is owned by `src/airflow/cht.*` and
+`cht_main.cpp`, with SI admission/process supervision in
+`python/spike_core/native_cht.py` and independent field checks in
+`native_cht_result.py`. Solver-neutral supplied overlap transfers belong to
+`coupled_surface_exchange.py`. `service_cfd.py` and `scripts/run_cfd.py` expose
+the bounded routes. See [native method](validation/NATIVE_CHT_METHOD_20261020.md),
+[exchange](COUPLED_SURFACE_EXCHANGE.md), [examples](../examples/internal_cfd/README.md)
+and [ADR 0115](adr/0115-native-cavity-conjugate-energy-and-surface-exchange.md).
+
+`python/spike_core/rlgc_coupled_pair.py` owns supplied symmetric even/odd
+composition through the unchanged scalar network/field solvers, existing
+network worker and CLI. See [coupled pair math and limits](RLGC_COUPLED_PAIR.md)
+and [ADR0113](adr/0113-symmetric-coupled-rlgc-pair.md).
+
+Finite supplied SI candidate/corner studies are owned by
+`python/spike_core/si_candidate_study.py`, reusing `si_workflow.py` through the
+existing network worker and CLI. See [method and limits](SI_CANDIDATE_STUDY.md)
+and [ADR 0112](adr/0112-finite-si-candidate-corner-studies.md).
+
+Experimental complete planar DC domains and contact admission are owned by
+`dc_copper_domain.py` and `dc_triangle_partition.py`; signed-flux physical-volume
+observables by `dc_rt0_density.py`, with opt-in output from
+`peec_conforming_dc.py`. See [scope and evidence](DC_RT0_DENSITY.md).
+The isolated native equal-slab magnetic integral is owned by
+`src/peec/affine_slab_inductance.*`; see
+[method and limits](validation/PEEC_AFFINE_SLAB_KERNEL_20261019.md).
+These do not change production hybrid DC or PEEC dispatch.
+
+Opt-in owned pad geometry is prepared by `hybrid_owned_copper.py` and
+`hybrid_drilled_roundrect.py` within `python/spike_core`; `hybrid_mesh.py`
+owns dispatch and cell/contact construction. The default route is unchanged.
+See [owned DC geometry and numerical limits](OWNED_DRILLED_PAD_DC.md).
+`scripts/check_ebrake_owned_dc.py` retains actual full-board CLI/convergence
+evidence; `scripts/parity_owned_pad_gate.py` binds it to numerical tests.
+Failed board convergence remains distinct from geometry-stage verification.
+
+Supplied ideal RLGC star junctions are owned by
+`python/spike_core/rlgc_line_junction.py`, composing unchanged S03/S04
+networks and fields through the existing network worker and `rlgc-junction`
+CLI command. See [method and ownership](RLGC_LINE_JUNCTION.md) and
+[ADR 0111](adr/0111-supplied-rlgc-star-junction.md). Each leg owns its heat;
+the common ideal node contributes no heat or storage.
+
+
+Supplied piecewise RLGC cascades are owned by
+`python/spike_core/rlgc_line_cascade.py`, composing the unchanged sampled
+network and field solvers through the network worker and CLI. See
+[wave connections and conservative section loss](RLGC_LINE_CASCADE.md) and
+[ADR 0109](adr/0109-piecewise-rlgc-cascade.md). Internal signed power is transfer,
+not additional heat; geometry/material thermal ownership remains supplied.
+
+
+Practical SI/PI entrypoints and readiness evidence are described in
+[Run SI and PI now](RUN_SI_PI_NOW.md). `scripts/check_pisi_readiness.py` owns
+the actual CLI workflow checks; `cli.py` exposes `pdn-network` through the
+existing PDN worker. `app/src/siWorkflowAssignments.ts` owns frontend channel
+assignment guidance/admission; the SI backend remains authoritative.
+
+Driven sampled RLGC fields and loss ledgers are owned by
+`python/spike_core/rlgc_line_fields.py`, reusing the sampled RLGC network through
+the existing network worker. See [RMS fields and integrated loss](RLGC_LINE_FIELDS.md)
+and [ADR 0107](adr/0107-driven-rlgc-line-loss-ledger.md). Separate conductor and
+dielectric heat channels preserve later coupling identity without assigning
+volumetric ownership or changing the transient solvers.
+
+
+Supplied uniform sampled RLGC networks are owned by
+`python/spike_core/rlgc_line_network.py`, through the existing network worker
+with finite-JSON helpers from `sparameter_sampling.py`. See
+[referenced two-port mathematics](RLGC_LINE_NETWORK.md) and
+[ADR 0106](adr/0106-supplied-rlgc-line-network.md). Supplied constitutive tables
+remain distinct from extracted material/geometry laws and thermal ownership.
+
+
+Distortionless distributed line losses are owned by
+`python/spike_core/distortionless_line_transient.py`, reusing the lossless
+line's finite-time/PWL/product admission helpers through the network worker.
+See [referenced lossy waves and loss density](DISTORTIONLESS_LINE_TRANSIENT.md)
+and [ADR 0105](adr/0105-distortionless-line-loss-density.md). Zero-rate point
+values remain exact; heat-density ownership stays distinct from storage.
+
+
+Distributed lossless TEM line transients are owned by
+`python/spike_core/lossless_line_transient.py`, using finite JSON helpers through
+the existing network worker. See
+[referenced telegrapher/causal-wave mathematics](LOSSLESS_LINE_TRANSIENT.md) and
+[ADR 0104](adr/0104-causal-lossless-tem-line-transient.md). This independent
+analytical propagation path introduces no fitted delay or time mesh.
+
+
+Initialized port reflectometry is owned by
+`python/spike_core/sparameter_reflectometry.py`, above the initialized RLC
+propagator through the existing network worker. See
+[referenced wave/current/power semantics](NETWORK_REFLECTOMETRY.md) and
+[ADR 0103](adr/0103-initialized-network-port-reflectometry.md). Probe current is
+into the fitted network; source current and heat ownership remain separate.
+
+
+Supplied crosstalk timing corners are owned by
+`python/spike_core/sparameter_crosstalk_timing.py`, above multi-aggressor and
+initialized RLC solvers through the existing network worker. See
+[referenced clipped waveform/corner semantics](CROSSTALK_TIMING_CORNERS.md) and
+[ADR 0102](adr/0102-supplied-crosstalk-timing-corners.md). Every corner preserves
+source and initial-state identity; all-corner budgets precede actual fitting.
+
+
+Sampled multi-aggressor crosstalk is owned by
+`python/spike_core/sparameter_multi_aggressor.py`, above the initialized RLC
+solver through the existing network worker. See
+[referenced decomposition and limits](MULTI_AGGRESSOR_CROSSTALK.md) and
+[ADR 0100](adr/0100-sampled-multi-aggressor-crosstalk.md). Common state and fixed
+drives belong to the baseline; quadratic heat is never superposed.
+
+
+Continuous RLC energy integration is owned by
+`python/spike_core/sparameter_rlc_energy.py`, observing private interval hooks in
+the existing initialized RLC propagator. See
+[referenced work/heat/storage mathematics](RLC_ENERGY_LEDGER.md) and
+[ADR 0099](adr/0099-continuous-rlc-energy-ledger.md). Public transient interfaces
+remain separate; joules are not automatically deposited on a thermal mesh.
+
+Supplied RLC initial states are owned by
+`python/spike_core/sparameter_rlc_initial.py`, reusing the existing RLC private
+propagator through a separate v2 worker/API. See
+[referenced initialization and continuation](RLC_INITIAL_STATES.md) and
+[ADR 0098](adr/0098-supplied-rlc-initial-states.md). Typed state records bind fit
+identity and physical port subsets; source slicing and time remain caller-owned.
+
+Combined R/series-L/shunt-C fitted-network boundaries are owned by
+`python/spike_core/sparameter_rlc_terminated.py`, through the existing sampled
+network worker. See [referenced mathematics/API](RLC_NETWORK_TRANSIENT.md) and
+[ADR 0097](adr/0097-combined-rlc-network-boundaries.md). Source/network currents,
+loss and both component storage histories remain explicit for future coupling.
+
 Bounded rectangular sheet/flex folding is owned by
 `python/spike_core/sheet_folding.py`; read-only worker routes by
 `service_sheet_folding.py`; the desktop workspace by `app/src/SheetFoldingPanel.tsx`.
@@ -88,6 +361,37 @@ coverage declarations are audited by `active_library_coverage.py`; private vendo
 gate reference checks use `scripts/qualify_spikes_logic_vendor.py`. Neither implies
 manufacturer qualification or redistribution permission.
 
+The dedicated manufacturer hub is owned by Studio `manufacturer_library_hub.py`;
+`manufacturer_discovery.py` validates factual product identities and
+`ltspice_local_library.py` indexes local source/symbol metadata without execution.
+Existing `manufacturer_parts.py` owns sourced electrical part admission. See
+[ADR 0111](adr/0111-manufacturer-discovery-and-local-model-index.md).
+
+Controller board pinout metadata is owned by Studio `controller_boards.py`;
+`controller_board_blocks.py` owns saved snapshots and explicit sampled-adapter
+maps. `controller_board_browser.py` and `controller_board_canvas.py` provide the
+floating library, all-pin previews and undoable labeled schematic blocks.
+See [coverage and execution limits](../standalone/spikes_project/docs/CONTROLLER_BOARD_LIBRARY.md).
+These templates do not provide CPU, firmware or peripheral emulation.
+
+Explicit native firmware execution is separately owned by Studio
+`firmware_image.py` (inert ELF/raw admission), `renode_process.py` (bounded pipe
+transport), `firmware_session.py` (native MCU lifecycle), and
+`firmware_controller.py` / `firmware_coupling.py` (sampled DI/DO circuit boundary).
+The floating `firmware_window.py` never executes on import or silently swaps
+targets. See [ADR 0110](adr/0110-explicit-native-firmware-backend.md) and
+[exact native firmware scope](../standalone/spikes_project/studio/docs/CONTROLLER_FIRMWARE.md).
+
+Semiconductor model-card forms and cloning are owned by Studio `part_properties.py`;
+`model_parameter_labels.py` owns presentation grouping. The floating
+`model_library_editor.py` edits inert MODEL and IC SUBCKT parameter tokens;
+`thermal_assessment_fields.py` supplies the existing thermal-margin report.
+Labeled Studio component/catalog values are owned by `component_parameter_form.py`
+and `component_panel.py`; pin/limit/property and capacitor-policy fields by
+`property_fields.py` and `desktop.py`. `part_form_checks.py` exercises the same
+workflows in source, frozen and installed acceptance runs. Serialization is an
+internal document boundary, not the ordinary value-entry UI.
+
 Configurable preferred-value passives are owned by Studio `passive_catalog.py`;
 the original generic circuit/impedance equations by `python/spikes/passive_models.py`.
 `standard_passive_seed.py` adds exact manufacturer catalog evidence, not vendor
@@ -98,6 +402,27 @@ Studio discovery searches reuse `fuzzy_search.py` for bounded, cached matching
 and ranking. Symbol, part, net, directive, battery, command, model-library and
 waveform/timing search owners preserve their exact eligibility filters. This
 does not change identifier resolution, source syntax or circuit contents.
+
+Studio `discovery_index.py` owns the quick-insert library snapshot and bounded
+result-page cache. `schematic_clipboard.py` owns same-sheet fragment validation,
+isolated net remapping and placement plans; `desktop.py` owns preview commands.
+`clipboard_text.py` owns immediate Unicode text transfer with a live Windows
+owner and bounded native reads, with wx clipboard transport on other platforms.
+`lumped_physics_library.py` adapts existing lumped builders to catalog records
+and preserves their qualification limits. See [the Studio workflow increment](SPIKES_STUDIO_ADVANCEMENT.md).
+
+SPIKES `python/spikes/measurements.py` owns recorded-sample reductions shared by
+the owned and reference runners. It has no solver imports; the reference runner
+retains its helper reexports. Owned simulation startup must not initialize the
+reference MNA or field-provider stack merely to reduce measurements. Studio's
+hidden placeholder plots defer painting to native visibility/paint events.
+
+Studio `packaged_device_library.py` composes established lumped cores and
+constant package-parasitic builders into strict, generic unqualified catalog
+records; see [packaged model topology and limits](../standalone/spikes_project/studio/docs/PACKAGED_DEVICE_LIBRARY.md).
+The canvas wire snap resolver uses current visible geometry for both preview
+and click. `wiring_package_checks.py` exercises the same controls in source,
+frozen and installed acceptance runs; numerical connectivity remains document-owned.
 
 Recorded-run XY/spectral/eye/histogram/integral reductions and floating workers
 are owned by Studio `analysis_plots.py` and `analysis_plot_window.py`; see
@@ -399,6 +724,8 @@ inventory/reduction live in `si_network_workflow.py`, `si_passives.py` and
 | `app/src/EMergeRuntimeUpdater.tsx`, `useEMergeRuntimeUpdates.ts`, `emergeRuntimeUpdates.ts` | Local EMerge update controls and persistent workspace operation state | Release checks, exact target selection, status recovery and interpreter locking; see [workflow](EMERGE_RUNTIME_UPDATES.md) |
 | `app/src/main.tsx` | React bootstrap | Installs the root error boundary |
 | `app/src/detachedToolWindows.tsx` | Native/browser detached Results and Probe presentation bridge | Main workspace remains state authority; child does not start workers |
+| `app/src/WorkspaceHeader.tsx`, `UniversalSearch.tsx`, `searchPreferences.ts` | Permanent workspace shortcuts, project file actions and learned command search | Local bounded action history/pins; existing project authority and execution gates |
+| `app/src/workspaceViewWindows.ts`, `workspaceViewModel.ts`, `useWorkspaceViews.tsx` | Scoped assembly tabs and presentation-only detached windows | Token/revision/project-bound owner actions, lazy GPU lifetime; see `docs/adr/0103-scoped-assembly-view-windows.md` |
 | `app/src/assemblyToolWindows.ts`, `assemblyToolWindowModel.ts` | Native/browser assembly tool IPC bridge and session contract | Token-bound actions, stale revision protection and main workspace state authority; saved assembly workers remain in workerBridge |
 | `app/src/assemblyBoardLifecycle.ts`, `AssemblyStructureEditor.tsx` | Retained-source board addition, unique local duplication and occurrence removal | Independent frames and placements; explicit link cleanup; package transactions remain in `service_project_assembly.py` |
 | `app/src/AssemblyToolHost.tsx`, `AssemblyToolWindowRoot.tsx` | Native assembly workspace, placement and manager tool contents | OS title-bar movement/resizing and dirty-draft close handling; no renderer buffers in snapshots |
@@ -837,6 +1164,15 @@ and universal search; runtime eligibility remains in the selected worker workflo
 `python/spike_core/studio_bridge.py` owns inert standalone Studio discovery and
 revision-bound snapshot staging/launch. See [solver suite](SOLVER_SUITE.md).
 
+`python/spike_core/solver_blocks.py` owns logical block dependencies, bulk-group
+composition and inert preview plans; `SolverBlockPanel.tsx` presents them in the
+Solver Manager. The generated catalog snapshot is checked against Python.
+See [solver blocks](SOLVER_BLOCKS.md).
+
+`reportPrivacy.ts`, `SupportReportPreview.tsx` and `AppErrorBoundary.tsx` own
+default-redacted local support reports and recovery. See
+[support report privacy](SUPPORT_REPORT_PRIVACY.md).
+
 ## PI sentence setup and prescribed pin loading
 
 `app/src/piSearchIntent.ts` owns bounded endpoint sentence planning and ambiguity
@@ -919,3 +1255,73 @@ Interface layout selection: `app/src/appSettings.ts`, `app/src/interfaceLayout.c
 
 Live first-party control search is owned by `app/src/liveControlSearch.ts` and
 `UniversalSearch.tsx`; [command access](COMMAND_ACCESS.md) describes runtime coverage.
+
+
+Desktop source drops are owned by `app/src-tauri/src/import_drop.rs` (OS path
+approval and main-webview events), `app/src/dropImportModel.ts` (source routing
+and bounded review queue), and `app/src/FileDropImport.tsx` (transient review UI).
+`App.tsx` connects review to existing project/import/attachment workflows.
+Source parsing remains in the registered Python adapters. See
+[ODB++ and harness usage](ODB_AND_HARNESS_EXTENSIONS.md#drag-and-drop-import).
+
+## Sampled reactive physical coupled-line terminations
+
+`python/spike_core/rlgc_reactive_pair.py` owns SI02-S09 physical series-R/L and
+node-shunt-C boundaries. It composes the existing supplied coupled-pair fields
+through the RF worker and CLI, with strict versioned schemas, source-bound gate
+and independent physical-state/ABCD verification.
+[Method and limits](RLGC_REACTIVE_PAIR.md);
+[ADR 0118](adr/0118-reactive-coupled-line-boundaries.md).
+No inferred geometry or thermal ownership is part of this boundary.
+
+## Supplied piecewise symmetric coupled-line cascades
+
+`python/spike_core/rlgc_coupled_cascade.py` owns SI02-S10 ideal physical
+connections, bounded feedback and section loss ledger around unchanged S07
+producers and S08 field/provenance checks. The RF worker/CLI expose separate
+strict request/result schemas. [Method](RLGC_COUPLED_CASCADE.md),
+[ADR0120](adr/0120-supplied-coupled-line-cascades.md) and
+[execution evidence](validation/SI02_COUPLED_CASCADE_20261020.md) define the
+experimental envelope. Geometric interfaces and thermal allocation are open.
+
+## Physical RLC loaded supplied coupled channels
+
+`python/spike_core/rlgc_loaded_cascade.py` owns SI02-S11 physical source/load
+composition around unchanged S09/S10 direct solves and actual section fields.
+It binds section drives/provenance and canonical interface/heat ledgers, then
+retains separate terminal/section heat and mean energy/reactive observables.
+[Method](RLGC_LOADED_CASCADE.md),
+[ADR0122](adr/0122-physical-rlc-loaded-coupled-cascades.md),
+[strict worker/CLI evidence](validation/SI02_LOADED_CASCADE_20261020.md).
+No physical contact or thermal-cell inference is introduced.
+
+## Ideal supplied coupled-line branch junctions
+
+`python/spike_core/rlgc_coupled_star.py` owns SI02-S12 two-conductor ideal star
+composition. It reuses the conditioned coupled block solve and unchanged actual
+pair producers with strong field/loss provenance checks. Separate strict worker
+and CLI contracts enforce branch-dependent port and matrix dimensions.
+[Method](RLGC_COUPLED_STAR.md),
+[ADR 0123](adr/0123-ideal-supplied-coupled-line-stars.md),
+[verification](validation/SI02_COUPLED_STAR_20261020.md).
+Leg-level heat ownership does not infer a physical junction or thermal mapping.
+
+## Physical RLC loaded coupled stars
+
+`python/spike_core/rlgc_loaded_star.py` owns SI02-S13 variable-port endpoint
+closure and complete binding around unchanged ideal star/branch field producers.
+The S08 physical boundary comparison also uses a narrowly scoped operand-scale
+roundoff allowance; other integrity and physical power gates remain unchanged.
+[Method](RLGC_LOADED_STAR.md),
+[ADR 0124](adr/0124-physical-rlc-loaded-coupled-stars.md),
+[verification](validation/SI02_LOADED_STAR_20261021.md).
+The new schemas enforce source/termination counts for every 2–8-leg topology.
+
+## Part operating limits
+
+`python/spike_core/part_limits.py` evaluates explicit part-limit rules through
+`engineering_review.py` and its existing worker/CLI route. `PartLimitsPanel.tsx`
+and `partLimitsModel.ts` own editing, storage admission and report export;
+`engineeringReviewWorkspace.ts` retains rules and captured evidence, while
+`projectSnapshotState.ts` strips observations from result-free exports.
+See [workflow, equations and validation](PART_LIMITS.md).

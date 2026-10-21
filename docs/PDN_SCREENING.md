@@ -1,5 +1,10 @@
 # PDN Target and Decoupling Screening
 
+[Run SI and PI now](RUN_SI_PI_NOW.md) includes saved RC/RLC requests and a
+tested CLI path: `python -m python.spike_core.cli --output result.json
+pdn-network request.json`. This solves the explicit AC/load-transient model
+through the same worker as the desktop; no board parasitics are inferred.
+
 The [passive sampled reduction workflow](PDN_ADMITTANCE_REDUCTION.md) admits
 explicit auxiliary-port loads and floating ports while retaining selected PDN
 ports. It preserves the exact grid and reference; no causal fitting is implied.
@@ -187,7 +192,7 @@ that physical copper, grounds on different boards, or return paths are connected
    intended bias, temperature, frequency and small-signal operating conditions.
 5. Enter current-versus-time points and output times. A pulse starts at zero
    perturbation, includes finite rise/fall and can return to zero. Requested
-   output/PWL events are included exactly in the integration grid.
+Output and PWL events are included exactly in the integration grid.
 6. **Save AC setup to tree** retains the request in `piTopology.acPdnRequest`.
    Run, inspect driving-point and named-node transfer impedance, then port/net
    voltage deviations during the load spike. Existing immutable project history

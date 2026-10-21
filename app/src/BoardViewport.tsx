@@ -1,4 +1,5 @@
 import { resultVectorGlyphs, type ResultVectorGlyph } from "./resultVectorGlyphs";
+import { appendProceduralDrillHoles, proceduralPadDrillPath } from "./proceduralDrillGeometry";
 import { viewportBackgroundColor, worldGridSize, type ViewportBackground } from "./viewportEnvironment";
 import { assemblyNetLabels } from "./assemblyNetLabels";
 import { applyNetFocusColor } from "./netFocusMaterial";
@@ -75,6 +76,8 @@ import type { AssemblySnapTarget } from "./assemblySnapTargets";
 import { attachAssemblyResultOverlay, type AssemblyBoardResultOverlay } from "./assemblyResultOverlays";
 import type { TopologyReference } from "./assemblyPackageShapes";
 import { formatViewportAxisTick, formatViewportResultTick, piImpedanceSamples, spatiallyThinSamples, viewportResultField } from "./viewportResultFields";
+import { buildFieldVolumeScene } from "./fieldVolumeScene";
+import type { MainFieldView } from "./mainFieldViewport";
 import ResultValueScale from './ResultValueScale';
 import TraceValuePopup from "./TraceValuePopup";
 import { traceValuePopupModel } from "./traceValuePopupModel";
@@ -277,6 +280,8 @@ type Props = {
   emRadiation?: EmRadiationViewportResult | null;
   emOverlay?: { data: EMViewportData; settings: EMViewportSettings } | null;
   extensionMesh?: ExtensionMesh | null;
+  fieldVolume?: MainFieldView | null;
+  onFieldError?: (message: string) => void;
   onEmSample?: (index: number) => void;
   siCrosstalk?: SiCrosstalkViewportResult | null;
   board?: ParsedBoard | null;
@@ -867,12 +872,8 @@ function padPath(pad: ParsedPad, scale: number): THREE.Shape {
   } else {
     shape = roundedRectanglePath(width, height, Math.min(width, height) * 0.06);
   }
-  if (pad.drill > 0) {
-    const hole = new THREE.Path();
-    const radius = pad.drill * scale / 2;
-    hole.absellipse(0, 0, radius, radius, 0, Math.PI * 2, false);
-    shape.holes.push(hole);
-  }
+  const bore = proceduralPadDrillPath(pad, scale);
+  if (bore) shape.holes.push(bore);
   return shape;
 }
 
@@ -986,7 +987,7 @@ function resultAxisTicks(minimumMm: number, maximumMm: number, desiredCount = 5)
 const EMPTY_VIEWPORT_LIST: never[] = [];
 const EMPTY_VIEWPORT_MAP: Record<string, never> = {};
 
-function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLayers, layerOpacity, layerSeparation, showVias, showNetNames = false, showModels, showSmdModels, showThtModels, assemblyModels = EMPTY_VIEWPORT_LIST, assemblySelectorPreviews = EMPTY_VIEWPORT_LIST, virtualBoards = EMPTY_VIEWPORT_LIST, assemblyBoardDesigns = EMPTY_VIEWPORT_MAP, assemblyLayerVisibility = EMPTY_VIEWPORT_MAP, assemblyLayerOpacity = EMPTY_VIEWPORT_MAP, assemblyLayerFocus = EMPTY_VIEWPORT_MAP, onAssemblyLayerFocus, assemblyBoardVisibility = EMPTY_VIEWPORT_MAP, assemblyExplodeOffsets = EMPTY_VIEWPORT_MAP, assemblySnapTargets = EMPTY_VIEWPORT_LIST, selectedAssemblySnapTargetId = null, onAssemblySnapTarget, assemblyResultOverlays = EMPTY_VIEWPORT_LIST, selectedBoardInstanceId = null, onBoardInstanceSelect, onAssemblyNetSelect, onAssemblyComponentSelect, onShowAllAssemblyBoards, linkedAssemblyNets = EMPTY_VIEWPORT_MAP, virtualHarnesses = EMPTY_VIEWPORT_LIST, selectedHarnessId = null, selectedHarnessConductorId = null, onHarnessSelect, topologySelectorActive = false, selectedTopologyId = null, onTopologySelect, isolatedAssemblyPartId = null, assemblySection = DEFAULT_ASSEMBLY_SECTION, navigationMode, navigationInertia, showWorldGrid = true, viewportBackground = "dark", showAxes = true, selectionBlink = true, renderingQuality = "balanced", antialiasing = true, maximumFps = 120, cameraCommand, viewportRestore = null, selectionFilter, selectedId, selectedPosition, selectedNet = null, highlightedNets = EMPTY_VIEWPORT_LIST, isolatedNet = null, analysisResult = null, resultVisualization, analysisNets = EMPTY_VIEWPORT_LIST, probes = EMPTY_VIEWPORT_LIST, showProbes = true, hoverProbeEnabled = false, hoverProbeKind = "universal", traceValuePopupsEnabled = false, tracePopupHistoryLimit = 48, tracePopupResultBoardInstanceId = null, terminalMarkers = EMPTY_VIEWPORT_LIST, thermalScenario = null, thermalVisibility = { volume: true, heatSources: true, airflow: true, hardware: true, field: true }, emRadiation = null, emOverlay = null, extensionMesh = null, onEmSample, siCrosstalk = null, board, onSelect, onHoverProbe, onNetTune, onContextMenu, onOrbitCenter, onCamera, onLayoutView, onTelemetry, onModelStatus, sceneLoadToken = null, onSceneReady, onAssemblyPartViewportStatus }: Props) {
+function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLayers, layerOpacity, layerSeparation, showVias, showNetNames = false, showModels, showSmdModels, showThtModels, assemblyModels = EMPTY_VIEWPORT_LIST, assemblySelectorPreviews = EMPTY_VIEWPORT_LIST, virtualBoards = EMPTY_VIEWPORT_LIST, assemblyBoardDesigns = EMPTY_VIEWPORT_MAP, assemblyLayerVisibility = EMPTY_VIEWPORT_MAP, assemblyLayerOpacity = EMPTY_VIEWPORT_MAP, assemblyLayerFocus = EMPTY_VIEWPORT_MAP, onAssemblyLayerFocus, assemblyBoardVisibility = EMPTY_VIEWPORT_MAP, assemblyExplodeOffsets = EMPTY_VIEWPORT_MAP, assemblySnapTargets = EMPTY_VIEWPORT_LIST, selectedAssemblySnapTargetId = null, onAssemblySnapTarget, assemblyResultOverlays = EMPTY_VIEWPORT_LIST, selectedBoardInstanceId = null, onBoardInstanceSelect, onAssemblyNetSelect, onAssemblyComponentSelect, onShowAllAssemblyBoards, linkedAssemblyNets = EMPTY_VIEWPORT_MAP, virtualHarnesses = EMPTY_VIEWPORT_LIST, selectedHarnessId = null, selectedHarnessConductorId = null, onHarnessSelect, topologySelectorActive = false, selectedTopologyId = null, onTopologySelect, isolatedAssemblyPartId = null, assemblySection = DEFAULT_ASSEMBLY_SECTION, navigationMode, navigationInertia, showWorldGrid = true, viewportBackground = "dark", showAxes = true, selectionBlink = true, renderingQuality = "balanced", antialiasing = true, maximumFps = 120, cameraCommand, viewportRestore = null, selectionFilter, selectedId, selectedPosition, selectedNet = null, highlightedNets = EMPTY_VIEWPORT_LIST, isolatedNet = null, analysisResult = null, resultVisualization, analysisNets = EMPTY_VIEWPORT_LIST, probes = EMPTY_VIEWPORT_LIST, showProbes = true, hoverProbeEnabled = false, hoverProbeKind = "universal", traceValuePopupsEnabled = false, tracePopupHistoryLimit = 48, tracePopupResultBoardInstanceId = null, terminalMarkers = EMPTY_VIEWPORT_LIST, thermalScenario = null, thermalVisibility = { volume: true, heatSources: true, airflow: true, hardware: true, field: true }, emRadiation = null, emOverlay = null, extensionMesh = null, fieldVolume = null, onFieldError, onEmSample, siCrosstalk = null, board, onSelect, onHoverProbe, onNetTune, onContextMenu, onOrbitCenter, onCamera, onLayoutView, onTelemetry, onModelStatus, sceneLoadToken = null, onSceneReady, onAssemblyPartViewportStatus }: Props) {
   const renderQuality = (badge: ReactNode) => qualityTarget ? createPortal(badge, qualityTarget) : badge;
   const [incomingBoard, setIncomingBoard] = useState<ParsedBoard | null>(null);
   const [fullModelState, setFullModelState] = useState<"none" | "loading" | "ready" | "failed">("none");
@@ -1089,6 +1090,8 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
   sourceNavigationEnabledRef.current = resultVisualization?.sceneMode !== "results_only";
 
   const sceneRef = useRef<THREE.Scene>();
+  const fieldVolumeGroupRef = useRef<THREE.Group | null>(null);
+  const [fieldScale, setFieldScale] = useState<{label:string;unit:string;minimum:number;maximum:number;scope:string} | null>(null);
   const extensionMeshGroupRef = useRef<THREE.Group | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const keyLightRef = useRef<THREE.DirectionalLight>();
@@ -1336,7 +1339,8 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
       antialias: antialiasing,
       alpha: false,
       powerPreference: "high-performance",
-      logarithmicDepthBuffer: true,
+      // Bounded conventional depth preserves early depth tests and polygon
+      // bias on PCB skins. Reverse depth failed the retained WebView fixture.
     });
     const initialProfile = renderProfileRef.current;
     const fullPixelRatio = initialProfile.fullPixelRatio;
@@ -1367,7 +1371,14 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
       const roots = [boardGroupRef.current, accurateGroupRef.current,
         ...((virtualBoardGroupRef.current?.children ?? []).flatMap(frame => frame.children)),
         ...((assemblyGroupRef.current?.children ?? []).flatMap(frame => frame.children))].filter((root): root is THREE.Object3D => Boolean(root));
-      const pass = occurrenceCuller.begin(camera, shadowPass ? [] : roots.map(root => ({ root, geometryRevision: occurrenceGeometryRevisionRef.current })));
+      const pass = occurrenceCuller.begin(camera, shadowPass ? [] : roots.map(root => ({
+        root,
+        // Assembly occurrences own their geometry lifetime. A main-board
+        // bounds refresh must not force an O(all occurrence geometry) cache
+        // rebuild on the next interactive frame.
+        geometryRevision: root.userData.spikeOccurrenceGeometryRevision
+          ?? occurrenceGeometryRevisionRef.current,
+      })));
       try { renderer.render(scene, camera); } finally { pass.restore(); }
       host.dataset.occurrenceCulling = `tested=${pass.tested};culled=${pass.culled};cache_hits=${pass.cacheHits};cache_misses=${pass.cacheMisses};shadow_pass=${Boolean(shadowPass)}`;
     };
@@ -1425,7 +1436,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
         perspective.updateProjectionMatrix();
       }
       host.dataset.depthPrecision = [
-        "adaptive-logarithmic-z",
+        renderer.capabilities.reverseDepthBuffer ? "adaptive-reversed-z" : "adaptive-standard-z",
         `near=${near.toFixed(3)}`,
         `far=${far.toFixed(3)}`,
         `distance=${distance.toFixed(3)}`,
@@ -1450,6 +1461,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
       if (!resultBounds.isEmpty()) boardBounds.union(resultBounds);
       const emBounds = new THREE.Box3().setFromObject(emRadiationGroup);
       if (!emBounds.isEmpty()) boardBounds.union(emBounds);
+      if (fieldVolumeGroupRef.current) boardBounds.union(new THREE.Box3().setFromObject(fieldVolumeGroupRef.current));
       if (extensionMeshGroupRef.current) boardBounds.union(new THREE.Box3().setFromObject(extensionMeshGroupRef.current));
       if (!boardBounds.isEmpty()) {
         visibleBoundsRef.current = {
@@ -1848,11 +1860,13 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
     const pickPriority = (candidate: { hit: THREE.Intersection; data: BoardObject }) =>
       Number(candidate.hit.object.userData.pickPriority ?? (candidate.data.type === "component" ? 1 : 0));
     const exactRaycastCandidates = () => {
-      const source = [...pickablesRef.current, ...assemblyModelPickablesRef.current];
-      if (interactionComplexityRef.current <= 12_000 || source.length < 2_000) return source;
+      const sourceCount = pickablesRef.current.length + assemblyModelPickablesRef.current.length;
+      if (interactionComplexityRef.current <= 12_000 || sourceCount < 2_000)
+        return [...pickablesRef.current, ...assemblyModelPickablesRef.current];
       let cached = pickablesIndexRef.current;
       if (!cached || cached.revision !== pickablesRevisionRef.current) {
         scene.updateMatrixWorld(true);
+        const source = [...pickablesRef.current, ...assemblyModelPickablesRef.current];
         const records: SpatialBounds<THREE.Object3D>[] = source.flatMap(object => {
           const bounds = new THREE.Box3().setFromObject(object);
           if (bounds.isEmpty()) return [];
@@ -1872,7 +1886,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
         raycaster.ray.direction.toArray() as [number, number, number],
       );
       host.dataset.raycastBroadphase = [
-        `input=${source.length}`, `candidates=${query.values.length}`,
+        `input=${sourceCount}`, `candidates=${query.values.length}`,
         `cells=${query.cells}`, `global=${query.global}`,
       ].join(";");
       return query.values;
@@ -2686,6 +2700,10 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
       if (points.length > 2) boardShape.holes.push(pathFromPoints(points));
     });
 
+    const drillReport = appendProceduralDrillHoles(boardShape, activeBoard, world);
+    if (hostRef.current) hostRef.current.dataset.proceduralDrills = JSON.stringify(drillReport);
+    if (drillReport.diagnostics.length && !activeBoard.boardModelUrl) setModelError(`Procedural board preview: ${drillReport.diagnostics.length} intersecting or invalid drills need authoritative geometry; use the source board model for these openings.`);
+
     // The substrate fills the space between conductors. Including the outer
     // copper/finish thickness or extruding a bevel beyond it hides enabled copper.
     const substrateBounds = substrateZBounds(
@@ -2839,7 +2857,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
       for (const layer of padLayers) {
         const mesh = new THREE.Mesh(
           copperGeometryPool.acquire(
-            `pad:${pad.shape}:${pad.width.toFixed(5)}:${pad.height.toFixed(5)}:${pad.drill.toFixed(5)}:${scale.toFixed(7)}:${pad.customPolygon ? JSON.stringify(pad.customPolygon) : ""}`,
+            `pad:${pad.shape}:${pad.width.toFixed(5)}:${pad.height.toFixed(5)}:${pad.drill.toFixed(5)}:${pad.drill_shape}:${pad.drill_size?.join(",")}:${scale.toFixed(7)}:${pad.customPolygon ? JSON.stringify(pad.customPolygon) : ""}`,
             () => new THREE.ShapeGeometry(padPath(pad, scale), proceduralLod ? 4 : 12),
           ),
           displayMaterial(new THREE.Color(layerCssColor(layer, activeBoard.layers.indexOf(layer))).getHex(), { metalness: 0.48, roughness: 0.43 }),
@@ -2881,7 +2899,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
           ),
           displayMaterial(0xa96f2f, { metalness: 0.62, roughness: 0.44 }),
         );
-        ring.position.z = copperZ(faceLayer, activeBoard.layers, boardThickness, activeBoard.stackup);
+        ring.position.z = copperZ(faceLayer, activeBoard.layers, boardThickness, activeBoard.stackup) + copperClearance * 2 * (faceLayer === endLayer ? -1 : 1);
         ring.userData = { ...data, viaFaceLayer: faceLayer, basePositionZ: ring.position.z };
         identifySceneObject(ring, "via-face", faceLayer, `${via.id}-${faceLayer}`, activeBoard.layers);
         viaGroup.add(ring);
@@ -3353,6 +3371,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
       partFrame.name = `part:${instance.partId}`;
       partFrame.userData = {
         spikeSceneIdentity: instance.partId,
+        spikeOccurrenceGeometryRevision: 0,
         assemblyPartId: instance.partId,
         modelId: instance.modelId,
         modelType: instance.modelType,
@@ -3427,6 +3446,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
     const loads: Array<() => Promise<void>> = [];
     for (const { visual: boardVisual, source } of geometryBoards) {
       const scene = boardInstanceScene(boardVisual, false, [], { source, showSmd: showModels && showSmdModels, showTht: showModels && showThtModels });
+      scene.group.userData.spikeOccurrenceGeometryRevision = 0;
       if (source && (source.boardModelUrl || source.fullModelUrl || source.componentModelUrl)) loads.push(async () => {
         const boardUrl = source.boardModelUrl ?? source.fullModelUrl;
         const results = await Promise.allSettled([
@@ -3440,6 +3460,8 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
         const before = scene.pickables.length;
         try { mountKiCadScenes(scene, boardVisual, source, boardScene, componentScene); }
         catch (error) { if (boardScene) disposeScene(boardScene); if (componentScene) disposeScene(componentScene); throw error; }
+        scene.group.userData.spikeOccurrenceGeometryRevision =
+          Number(scene.group.userData.spikeOccurrenceGeometryRevision ?? 0) + 1;
         displayAssemblyOccurrence(scene.group, source, boardVisual.id);
         virtualBoardPickablesRef.current.push(...scene.pickables.slice(before));
         refreshVisibleBoundsRef.current();
@@ -3534,6 +3556,8 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
       if (previous) { occurrence.remove(previous); clearGroup(previous as THREE.Group); }
       const summary = assemblyResultOverlays.find(row => row.boardOccurrenceId === visual.id), source = assemblyBoardDesigns[visual.designId];
       if (summary && source) { const overlay = attachAssemblyResultOverlay(occurrence, { visual, sourceParsedBoard: source, summary }); overlay.userData.presentationOnly = true; }
+      occurrence.userData.spikeOccurrenceGeometryRevision =
+        Number(occurrence.userData.spikeOccurrenceGeometryRevision ?? 0) + 1;
     }
   }, [assemblyResultOverlays, assemblyBoardDesigns, virtualBoards]);
 
@@ -3826,6 +3850,28 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
     refreshVisibleBoundsRef.current();
     return () => { scene.remove(group); clearGroup(group); extensionMeshGroupRef.current = null; refreshVisibleBoundsRef.current(); };
   }, [activeBoard, extensionMesh, viewMode]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene || !fieldVolume || viewMode !== "3D") { setFieldScale(null); return; }
+    const group = buildFieldVolumeScene(fieldVolume.data, fieldVolume.options,
+      activeBoard ? boardTransformRef.current : { centerX: 0, centerY: 0, scale: 1 });
+    fieldVolumeGroupRef.current = group;
+    scene.add(group);
+    const metadata = group.userData;
+    if (metadata.error) onFieldError?.(metadata.error);
+    const range = metadata.scalarRange;
+    setFieldScale(range && !metadata.error ? {
+      label: metadata.scalarLabel, unit: metadata.scalarUnit, minimum: range[0], maximum: range[1],
+      scope: metadata.streamNote || "Saved field · fixed history color range",
+    } : null);
+    refreshVisibleBoundsRef.current();
+    return () => {
+      scene.remove(group); clearGroup(group); fieldVolumeGroupRef.current = null;
+      refreshVisibleBoundsRef.current();
+    };
+  }, [activeBoard, fieldVolume, viewMode, onFieldError]);
+
 
   useEffect(() => {
     const group = siCrosstalkGroupRef.current;
@@ -4183,7 +4229,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
     const worldBounds = visibleBoundsRef.current;
     const size = worldGridSize(Math.max(activeBoard ? activeBoard.width * scale : 0, worldBounds.size.x), Math.max(activeBoard ? activeBoard.height * scale : 0, worldBounds.size.y));
     const divisions = 40;
-    const grid = new THREE.GridHelper(size, divisions, 0x66808b, 0x30434b);
+    const grid = new THREE.GridHelper(size, divisions, viewportBackground === "light" ? 0x607783 : 0x66808b, viewportBackground === "light" ? 0x7e929b : 0x30434b);
     grid.rotation.x = Math.PI / 2;
     grid.position.set(worldBounds.center.x, worldBounds.center.y, Math.min(activeBoard ? -boardThicknessMm(activeBoard) * scale / 2 : 0, worldBounds.center.z - worldBounds.size.z / 2) - 0.65);
     grid.visible = showWorldGrid;
@@ -4275,7 +4321,7 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
         group.add(zUnit);
       }
     }
-  }, [activeBoard, analysisResult, resultVisualization, showAxes, showWorldGrid, viewMode, virtualBoards, assemblyBoardDesigns, assemblyBoardVisibility, assemblyExplodeOffsets]);
+  }, [viewportBackground, activeBoard, analysisResult, resultVisualization, showAxes, showWorldGrid, viewMode, virtualBoards, assemblyBoardDesigns, assemblyBoardVisibility, assemblyExplodeOffsets]);
 
   useEffect(() => {
     const perspective = perspectiveRef.current;
@@ -5804,9 +5850,10 @@ function BoardViewportRenderer({ qualityTarget, onEmiScene, viewMode, visibleLay
                 : "FOOTPRINT PLACEHOLDERS"}
       </div>)}
     </div>
-      {(viewMode === '3D' && (thermalVisibility.field !== false && thermalBoardResult && thermalBoardTemperatureRange || generalThermalScale || emOverlay || emRadiation) || resultVisualization?.visible && (viewMode === '2D' ? layoutValueScale : scalarValueScale)) && <div className="viewport-result-scales" aria-label="Result value scales">
+      {(viewMode === '3D' && (thermalVisibility.field !== false && thermalBoardResult && thermalBoardTemperatureRange || generalThermalScale || emOverlay || emRadiation || fieldScale) || resultVisualization?.visible && (viewMode === '2D' ? layoutValueScale : scalarValueScale)) && <div className="viewport-result-scales" aria-label="Result value scales">
         {resultVisualization?.visible && (() => { const scale = viewMode === '2D' ? layoutValueScale : scalarValueScale?.result === analysisResult ? scalarValueScale : null; if (!scale || scale.mode !== resultVisualization.mode) return null; const metadata = viewportResultField(scale.mode); const vector = ['electric_field','magnetic_field'].includes(scale.mode); return <ResultValueScale label={metadata.label} unit={metadata.unit} minimum={scale.minimum} maximum={scale.maximum} gradient={vector ? undefined : `linear-gradient(to right, ${Array.from({length:9}, (_,i)=>`hsl(${(1-i/8)*(viewMode === '2D' ? 220 : .62*360)} 92% ${viewMode === '2D' ? 56 : 54}%) ${i/8*100}%`).join(',')})`} scope={vector ? 'Arrow magnitude range · color identifies quantity' : 'Displayed scalar field · linear color mapping'}/>; })()}
         {viewMode === '3D' && thermalVisibility.field !== false && thermalBoardResult && thermalBoardTemperatureRange && <ResultValueScale label="Board temperature" unit="°C" minimum={thermalBoardTemperatureRange.minimum} maximum={thermalBoardTemperatureRange.maximum} gradient={thermalBoardTemperatureGradient} scope={`${thermalBoardResult.modelStatus} · saved board field`}/>}
+        {viewMode === '3D' && fieldScale && <ResultValueScale {...fieldScale} gradient={`linear-gradient(to right, ${Array.from({length:9}, (_,i)=>{const c=thermalFieldColor(i,0,8); return `rgb(${c.map(v=>Math.round(v*255)).join(',')}) ${i/8*100}%`;}).join(',')})`}/>}
         {viewMode === '3D' && generalThermalScale && <ResultValueScale {...generalThermalScale} scope="Published thermal field samples"/>}
         {viewMode === '3D' && emOverlay && <ResultValueScale label={emOverlay.data.label} unit={emOverlay.data.unit} minimum={emOverlay.data.range[0]} maximum={emOverlay.data.range[1]} gradient={emViewportScaleGradient(emOverlay.data.range)} scope={`${emOverlay.data.frequencyHz} Hz · displayed field range`}/>}
         {viewMode === '3D' && emRadiation && !emOverlay && <ResultValueScale label="Relative far field" unit="dB" minimum={-40} maximum={0} gradient={`linear-gradient(to right, ${Array.from({length:9},(_,i)=>`hsl(${.62*360*(1-i/8)} 90% 55%) ${i/8*100}%`).join(',')})`} scope="Relative amplitude · values below −40 dB clipped to minimum color"/>}

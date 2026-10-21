@@ -249,9 +249,15 @@ requests `include_members=True` for lossless resave or artifact access.
 | Maximum compression ratio | 200:1 |
 | Maximum path depth | 12 |
 | Maximum manifest bytes | 16 MiB |
+| Maximum ordinary control-plane JSON member | 64 MiB |
+| Maximum canonical design JSON member | 512 MiB |
 
 These limits protect loading. They are not a statement that every solver can
 process a 16 GiB project. Solver and mesh resource limits remain independent.
+The canonical design budget applies to both `design/design-ir.json` and
+`design/assembly-designs.json`, because the latter retains complete SpiDeR design
+records for every board in an assembly. Other JSON metadata and indexes remain
+under the ordinary control-plane budget.
 
 ## Design, assembly, and models
 
@@ -484,7 +490,7 @@ non-finite, and unindexed topology claims fail package write or reopen.
 
 The bounded exact STEP-to-`.spkshape` path is implemented as a separate
 manifest-bound transaction. It reads only the retained digest-verified STEP
-owner, runs a fixed FreeCAD/OCC helper with source/output/report/entity,
+owner, runs a fixed FreeCAD/OCC helper with source, output, report and entity,
 time, memory, and stream limits, writes the raw OCC BREP plus deterministic
 selector inventory and validated local-mm analytic descriptors, and independently rechecks report, source, artifact,
 kernel, and selector identities before package mutation. Re-extraction replaces
